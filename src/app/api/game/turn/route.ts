@@ -129,6 +129,7 @@ export async function POST(request: Request) {
           narrativeText: narrativeResponse.narrative,
           imageUrl: null,
           worldState: narrativeResponse.worldState,
+          diceResults: diceActions ?? null,
           tokensUsed: 0,
         });
 

@@ -81,6 +81,7 @@ export const gameTurns = pgTable("game_turns", {
   imageUrl: text("image_url"),
   worldState: jsonb("world_state").notNull().$type<WorldState>(),
   tokensUsed: integer("tokens_used").notNull().default(0),
+  diceResults: jsonb("dice_results").$type<import("@/lib/ai/types").ActionCheck[]>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
