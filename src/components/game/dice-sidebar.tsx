@@ -56,7 +56,7 @@ export function DiceSidebar({ rounds, progress, children }: { rounds: DiceRound[
       <Button
         variant="ghost"
         size="icon-sm"
-        className="fixed right-2 top-16 z-40 lg:hidden"
+        className={`fixed right-2 top-16 z-40 ${collapsed ? "" : "lg:hidden"}`}
         onClick={() => setCollapsed(!collapsed)}
       >
         <Dices className="size-4" />
