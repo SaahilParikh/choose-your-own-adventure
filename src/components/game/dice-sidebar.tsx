@@ -1,0 +1,148 @@
+"use client";
+
+import type { ActionCheck } from "@/lib/ai/types";
+import { Dices, Check, X, ChevronRight, ChevronLeft } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
+
+function difficultyColor(d: number) {
+  if (d <= 10) return "bg-emerald-500";
+  if (d <= 30) return "bg-green-500";
+  if (d <= 60) return "bg-yellow-500";
+  if (d <= 80) return "bg-orange-500";
+  if (d <= 95) return "bg-red-500";
+  return "bg-red-700";
+}
+
+function difficultyLabel(d: number) {
+  if (d <= 10) return "Trivial";
+  if (d <= 30) return "Easy";
+  if (d <= 60) return "Moderate";
+  if (d <= 80) return "Hard";
+  if (d <= 95) return "Very Hard";
+  return "Impossible";
+}
+
+export type DiceRound = {
+  turnNumber: number;
+  playerAction: string;
+  actions: ActionCheck[];
+};
+
+export function DiceSidebar({ rounds, progress }: { rounds: DiceRound[]; progress: number }) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="fixed right-2 top-16 z-40 lg:hidden"
+        onClick={() => setCollapsed(!collapsed)}
+      >
+        <Dices className="size-4" />
+      </Button>
+
+      <aside
+        className={`${
+          collapsed ? "translate-x-full" : "translate-x-0"
+        } fixed inset-y-14 right-0 z-30 w-72 border-l border-border/50 bg-card/80 backdrop-blur-sm transition-transform lg:relative lg:inset-y-auto lg:translate-x-0`}
+      >
+        <div className="flex items-center justify-between border-b border-border/50 px-3 py-2">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            <Dices className="size-4" />
+            Dice Log
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="hidden lg:flex"
+            onClick={() => setCollapsed(!collapsed)}
+          >
+            {collapsed ? <ChevronLeft className="size-3" /> : <ChevronRight className="size-3" />}
+          </Button>
+        </div>
+
+        <div className="border-b border-border/50 px-3 py-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Progress</span>
+            <span className="text-xs font-bold tabular-nums">{progress}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${
+                progress >= 80 ? 'bg-emerald-500' :
+                progress >= 50 ? 'bg-yellow-500' :
+                progress >= 20 ? 'bg-orange-500' :
+                'bg-red-500'
+              }`}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        <ScrollArea className="h-[calc(100%-5rem)]">
+          <div className="space-y-3 p-3">
+            {rounds.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-8">
+                Dice rolls will appear here as you play.
+              </p>
+            )}
+            {[...rounds].reverse().map((round, ri) => (
+              <div key={ri}>
+                {ri > 0 && <Separator className="mb-3 opacity-30" />}
+                <div className={`mb-2 text-xs ${ri === 0 ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                  {ri === 0 && <span className="mr-1">▶</span>}
+                  Turn {round.turnNumber}: <span className="italic">{round.playerAction}</span>
+                </div>
+                <div className="space-y-2">
+                  {round.actions.map((a, i) => (
+                    <div key={i} className={`rounded-lg border p-2 space-y-1 ${ri === 0 ? "border-primary/40 bg-primary/5" : "border-border/30 bg-background/50"}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-foreground/90 truncate">
+                          {a.action}
+                        </span>
+                        {a.success ? (
+                          <Check className="size-3.5 text-emerald-500 shrink-0" />
+                        ) : (
+                          <X className="size-3.5 text-red-500 shrink-0" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${difficultyColor(a.difficulty)}`}
+                            style={{ width: `${a.difficulty}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground tabular-nums">
+                          🎲{a.roll}/{a.difficulty}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {difficultyLabel(a.difficulty)}
+                      </div>
+                      {a.repercussion && (
+                        <div
+                          className={`rounded px-2 py-1 text-[10px] ${
+                            a.repercussion.mild
+                              ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+                              : "bg-red-500/10 text-red-600 dark:text-red-400"
+                          }`}
+                        >
+                          {a.repercussion.mild ? "⚠ Mild" : "💀 Harsh"}: {a.repercussion.description}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </aside>
+    </>
+  );
+}
