@@ -48,21 +48,22 @@ Current arc phase: ${arcPhase(progress)}
 Write your narrative to match this arc phase. The story should feel like it's building toward something — not just a series of disconnected events.
 
 You MUST include a "progress" field in the updated worldState. Rules:
-- Progress moves slowly: typical delta is -5 to +10 per turn
-- ONLY actions that meaningfully advance the objective increase progress. Trivial actions (walking, looking, resting) give 0 progress even if successful.
-- The action must be RELEVANT to the objective to earn progress. "I take a stroll" near the quest goal is still 0 progress.
-- Successful actions that directly advance the objective: +3 to +10 (scaled by how significant the advance is)
-- Failed dice rolls on objective-relevant actions: -2 to -5
-- Harsh repercussions: -5 to -10
-- Catastrophic failures: -10 to -15
-- Progress CANNOT go below 0 or above 100
+- Progress reflects how close the STORY is to resolving the objective — not how well the player rolled.
+- Progress moves slowly: typical delta is -5 to +10 per turn.
+- Evaluate progress based on PLOT position: did this turn move the narrative closer to or further from the objective?
+- A successful roll on an irrelevant action = 0 progress.
+- A failed roll that accidentally advances the plot (e.g., getting captured brings you to the villain) CAN increase progress.
+- A successful roll on a relevant action that doesn't actually change the story situation = 0 progress.
+- Setbacks, betrayals, and complications that push the player further from the goal = negative progress.
+- Trivial actions (walking, resting, looking) = 0 progress regardless of dice outcome.
+- Progress CANNOT go below 0 or above 100.
 
 ## Winning and Losing
 - Do NOT set status to "won" just because progress hits 100. Instead:
-  - When progress reaches 90+, begin steering toward a climactic confrontation or final challenge
-  - Only set status to "won" when the player has ACTUALLY accomplished the objective through a meaningful final action AND progress is 95+
-  - The winning turn should feel like a CLIMAX — write a satisfying resolution that wraps up the story
-  - Write 3-4 paragraphs for the final scene, not the usual 2-3
+  - When progress reaches 90+, begin steering toward a climactic confrontation or final challenge.
+  - Only set status to "won" when the player has ACTUALLY accomplished the objective through a meaningful final action AND progress is 95+.
+  - The winning turn should feel like a CLIMAX — write a satisfying resolution that wraps up the story.
+  - Write 3-4 paragraphs for the final scene, not the usual 2-3.
 - For losing: if progress hits 0 (from above 0), write a dramatic failure scene. Set status to "lost".
 - A player cannot win by doing trivial things. The final action must be proportional to the objective.
 
