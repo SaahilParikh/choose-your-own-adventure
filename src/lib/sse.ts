@@ -1,4 +1,4 @@
-import type { ActionCheck } from "@/lib/ai/types";
+import type { ActionCheck, WorldAgentReaction } from "@/lib/ai/types";
 import type { TurnCost } from "@/lib/pricing";
 
 export type SSEHandlers = {
@@ -7,6 +7,7 @@ export type SSEHandlers = {
   onImage?: (imageUrl: string) => void;
   onAudio?: (audioUrl: string) => void;
   onDice?: (data: { actions: ActionCheck[] }) => void;
+  onAgents?: (data: { reactions: WorldAgentReaction[] }) => void;
   onCost?: (data: TurnCost) => void;
   onError?: (message: string) => void;
   onDone?: () => void;
@@ -37,6 +38,7 @@ export async function readSSEStream(response: Response, handlers: SSEHandlers) {
           case "image": handlers.onImage?.(data.imageUrl); break;
           case "audio": handlers.onAudio?.(data.audioUrl); break;
           case "dice": handlers.onDice?.(data); break;
+          case "agents": handlers.onAgents?.(data); break;
           case "cost": handlers.onCost?.(data); break;
           case "error": handlers.onError?.(data.message); break;
           case "done": handlers.onDone?.(); break;

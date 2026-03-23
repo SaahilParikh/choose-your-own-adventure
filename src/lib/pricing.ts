@@ -17,6 +17,7 @@ const MARGIN_MULTIPLIER = 1.5; // 50% margin
 export interface TurnCost {
   narrativeCost: number;
   difficultyCost: number;
+  agentCost: number;
   imageCost: number;
   pollyCost: number;
   subtotal: number;
@@ -47,6 +48,8 @@ export function calculateTurnCost(parts: {
   narrativeOutputTokens: number;
   difficultyInputTokens: number;
   difficultyOutputTokens: number;
+  agentInputTokens?: number;
+  agentOutputTokens?: number;
   imageGenerated: boolean;
   narrativeText: string;
 }): TurnCost {
@@ -60,13 +63,18 @@ export function calculateTurnCost(parts: {
     parts.difficultyInputTokens,
     parts.difficultyOutputTokens,
   );
+  const agentCost = calculateNarrativeCost(
+    parts.narrativeModelId,
+    parts.agentInputTokens ?? 0,
+    parts.agentOutputTokens ?? 0,
+  );
   const imageCost = parts.imageGenerated ? calculateImageCost() : 0;
   const pollyCost = calculatePollyCost(parts.narrativeText);
-  const subtotal = narrativeCost + difficultyCost + imageCost + pollyCost;
+  const subtotal = narrativeCost + difficultyCost + agentCost + imageCost + pollyCost;
   const total = subtotal * MARGIN_MULTIPLIER;
   const totalCents = Math.ceil(total * 100);
 
-  return { narrativeCost, difficultyCost, imageCost, pollyCost, subtotal, total, totalCents };
+  return { narrativeCost, difficultyCost, agentCost, imageCost, pollyCost, subtotal, total, totalCents };
 }
 
 export function formatBalance(cents: number): string {

@@ -4,6 +4,7 @@ import { games, gameTurns, type WorldState } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getBalance, deductCost } from "@/lib/tokens";
 import { generateSceneImage } from "@/lib/ai";
+import { spawnInitialAgents } from "@/lib/ai/world-agents";
 import type { GameContext, NarrativeResponse } from "@/lib/ai/types";
 import { getBedrockClient } from "@/lib/ai/bedrock";
 import { ConverseStreamCommand } from "@aws-sdk/client-bedrock-runtime";
@@ -43,6 +44,18 @@ export async function POST(request: Request) {
       };
 
       try {
+        // Spawn world agents
+        let agentInputTokens = 0;
+        let agentOutputTokens = 0;
+        try {
+          const agentResult = await spawnInitialAgents(setting, objective);
+          initialWorldState.agents = agentResult.agents;
+          agentInputTokens = agentResult.inputTokens;
+          agentOutputTokens = agentResult.outputTokens;
+        } catch (err) {
+          console.error("Agent spawning failed, proceeding without:", err);
+        }
+
         const command = new ConverseStreamCommand({
           modelId,
           system: [{ text: systemPrompt }],
@@ -127,6 +140,8 @@ export async function POST(request: Request) {
           narrativeOutputTokens,
           difficultyInputTokens: 0,
           difficultyOutputTokens: 0,
+          agentInputTokens,
+          agentOutputTokens,
           imageGenerated,
           narrativeText: narrativeResponse.narrative,
         });

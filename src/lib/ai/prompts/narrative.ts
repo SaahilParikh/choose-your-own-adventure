@@ -1,4 +1,4 @@
-import { ActionCheck, AntiCheatRule, GameContext, PromptBuilder } from "../types";
+import { ActionCheck, AntiCheatRule, GameContext, PromptBuilder, WorldAgentReaction } from "../types";
 import { defaultAntiCheatRules, composeAntiCheatPrompt } from "./anti-cheat";
 
 const HISTORY_WINDOW = 3;
@@ -18,7 +18,7 @@ export class NarrativePromptBuilder implements PromptBuilder {
     this.rules = antiCheatRules ?? defaultAntiCheatRules;
   }
 
-  buildSystemPrompt(context: GameContext, actionChecks?: ActionCheck[]): string {
+  buildSystemPrompt(context: GameContext, actionChecks?: ActionCheck[], agentReactions?: WorldAgentReaction[]): string {
     const recentHistory = context.turnHistory.slice(-HISTORY_WINDOW);
     const progress = context.worldState.progress ?? 10;
 
@@ -63,7 +63,7 @@ ${JSON.stringify(context.worldState, null, 2)}
 
 ## Recent History
 ${historyBlock}
-${this.buildDiceSection(actionChecks)}${composeAntiCheatPrompt(this.rules)}
+${this.buildDiceSection(actionChecks)}${this.buildAgentReactionsSection(agentReactions)}${composeAntiCheatPrompt(this.rules)}
 
 ## Response Format
 ONLY valid JSON (no markdown fences):
@@ -72,7 +72,11 @@ ONLY valid JSON (no markdown fences):
   "worldState": { updated world state with progress },
   "imagePrompt": "One sentence describing the current scene visually. Only what the player sees right now.",
   "status": "active" | "won" | "lost"
-}`;
+}
+
+If new entities enter the story, add them to worldState.agents with active: true.
+If entities leave, die, or become irrelevant, set their active: false.
+You may also adjust agent dispositions based on events.`;
   }
 
   buildUserMessage(playerAction: string | null): string {
@@ -93,6 +97,16 @@ ONLY valid JSON (no markdown fences):
     return `
 ## Dice Results
 These outcomes are FINAL. You MUST reflect them exactly in the narrative — successful actions succeed, failed actions fail with their repercussions. Do not override or soften the results.
+${lines}
+`;
+  }
+
+  private buildAgentReactionsSection(reactions?: WorldAgentReaction[]): string {
+    if (!reactions?.length) return "";
+    const lines = reactions.map((r) => `- ${r.agentName}: ${r.reaction}`).join("\n");
+    return `
+## World Agent Reactions
+These entities have independently reacted to the player's action. Incorporate their reactions naturally into the narrative:
 ${lines}
 `;
   }

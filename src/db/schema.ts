@@ -8,6 +8,7 @@ export type WorldState = {
   questProgress: Record<string, string>;
   flags: Record<string, boolean>;
   progress: number; // 0-100, starts at 10
+  agents?: import("@/lib/ai/types").WorldAgent[];
 };
 
 // ── Better Auth Required Tables ──────────────────────────

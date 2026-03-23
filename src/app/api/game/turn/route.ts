@@ -4,7 +4,8 @@ import { games, gameTurns, type WorldState } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { getBalance, deductCost } from "@/lib/tokens";
 import { generateSceneImage, evaluateDifficulty } from "@/lib/ai";
-import type { GameContext, TurnSummary, NarrativeResponse, ActionCheck } from "@/lib/ai/types";
+import { getWorldReactions } from "@/lib/ai/world-agents";
+import type { GameContext, TurnSummary, NarrativeResponse, ActionCheck, WorldAgentReaction } from "@/lib/ai/types";
 import { getBedrockClient } from "@/lib/ai/bedrock";
 import { ConverseStreamCommand } from "@aws-sdk/client-bedrock-runtime";
 import { NarrativePromptBuilder } from "@/lib/ai/prompts/narrative";
@@ -63,7 +64,26 @@ export async function POST(request: Request) {
           console.error("Dice evaluation failed, proceeding without:", diceErr);
         }
 
-        const systemPrompt = promptBuilder.buildSystemPrompt(context, diceActions);
+        // Get world agent reactions
+        let agentReactions: WorldAgentReaction[] = [];
+        let agentInputTokens = 0;
+        let agentOutputTokens = 0;
+        const agents = (game.worldState as import("@/db/schema").WorldState).agents;
+        if (agents?.length) {
+          try {
+            const result = await getWorldReactions(agents, playerAction, diceActions);
+            agentReactions = result.reactions;
+            agentInputTokens = result.inputTokens;
+            agentOutputTokens = result.outputTokens;
+            if (agentReactions.length) {
+              send("agents", { reactions: agentReactions });
+            }
+          } catch (err) {
+            console.error("World agent reactions failed, proceeding without:", err);
+          }
+        }
+
+        const systemPrompt = promptBuilder.buildSystemPrompt(context, diceActions, agentReactions);
 
         const command = new ConverseStreamCommand({
           modelId,
@@ -149,6 +169,8 @@ export async function POST(request: Request) {
           narrativeOutputTokens,
           difficultyInputTokens,
           difficultyOutputTokens,
+          agentInputTokens,
+          agentOutputTokens,
           imageGenerated,
           narrativeText: narrativeResponse.narrative,
         });

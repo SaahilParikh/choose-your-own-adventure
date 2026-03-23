@@ -70,6 +70,25 @@ export interface AntiCheatRule {
   toPromptText(): string;
 }
 
+// ── World agents ─────────────────────────────────────────
+
+export interface WorldAgent {
+  id: string;
+  name: string;
+  type: "npc" | "force" | "faction" | "creature" | "environment";
+  personality: string;
+  goals: string;
+  disposition: string;
+  active: boolean;
+}
+
+export interface WorldAgentReaction {
+  agentId: string;
+  agentName: string;
+  reaction: string;
+  dispositionChange?: string;
+}
+
 // ── Difficulty / dice-roll system ────────────────────────
 
 export interface ActionCheck {

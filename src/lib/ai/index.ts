@@ -51,6 +51,7 @@ export async function generateSceneImage(
 // ── Re-exports ───────────────────────────────────────────
 
 export { evaluateDifficulty } from "./difficulty";
+export { spawnInitialAgents, getWorldReactions } from "./world-agents";
 
 export type {
   ActionCheck,
@@ -67,4 +68,6 @@ export type {
   PromptBuilder,
   RepercussionCheck,
   TurnSummary,
+  WorldAgent,
+  WorldAgentReaction,
 } from "./types";
