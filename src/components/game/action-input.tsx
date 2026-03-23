@@ -102,7 +102,7 @@ export function ActionInput({
       const response = await fetch("/api/game/turn", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gameId, playerAction }),
+        body: JSON.stringify({ gameId, playerAction, voiceId }),
       });
 
       if (!response.ok) throw new Error(await response.text());

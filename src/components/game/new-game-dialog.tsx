@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,13 +15,26 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
-import { readSSEStream, playAudio, stopAudio } from "@/lib/sse";
+import { readSSEStream, playAudio } from "@/lib/sse";
 
 const presets = [
   { label: "🏰 Medieval Fantasy", setting: "A medieval fantasy kingdom with dragons, magic, and warring factions", objective: "Find the legendary sword and defeat the dark sorcerer" },
   { label: "🚀 Space Station", setting: "An abandoned space station orbiting a dying star", objective: "Restore the station's power and send a distress signal before oxygen runs out" },
   { label: "🏴‍☠️ Pirate Adventure", setting: "The Caribbean seas during the golden age of piracy", objective: "Find the buried treasure of Captain Blackwood" },
   { label: "🔍 Mystery Noir", setting: "A rain-soaked 1940s city full of secrets and corruption", objective: "Solve the murder of the city's most powerful businessman" },
+];
+
+const randomAdventures = [
+  { setting: "A vast underground mushroom kingdom where bioluminescent fungi light the caverns", objective: "Find the Spore Crown and unite the warring fungal colonies" },
+  { setting: "A floating archipelago of sky islands connected by ancient bridges above an endless storm", objective: "Reach the highest island and ring the Bell of Winds to calm the eternal tempest" },
+  { setting: "A cyberpunk megacity in 2187 where memories can be bought and sold on the black market", objective: "Recover your stolen memories and expose the corporation that took them" },
+  { setting: "An enchanted library where every book is a portal to the world described within its pages", objective: "Find the Unwritten Book before the Librarian erases your story" },
+  { setting: "A frozen tundra where mammoths still roam and an ancient civilization sleeps beneath the ice", objective: "Awaken the Frost Oracle and learn the secret to surviving the coming eternal winter" },
+  { setting: "A Wild West frontier town sitting on top of a sealed alien crash site", objective: "Prevent the town's corrupt sheriff from unsealing the alien vault beneath the saloon" },
+  { setting: "A sentient jungle that rearranges itself every night under a blood-red moon", objective: "Reach the Temple of Roots at the jungle's heart before it swallows you whole" },
+  { setting: "A crumbling Victorian mansion that exists simultaneously in three different time periods", objective: "Solve the murder that echoes across all three eras and free the trapped spirits" },
+  { setting: "An underwater city built inside a massive coral reef, threatened by a deep-sea leviathan", objective: "Rally the city's factions and drive back the leviathan before it destroys the reef" },
+  { setting: "A post-apocalyptic wasteland where music has magical power and silence means death", objective: "Find the Last Instrument and play the Song of Restoration to heal the broken world" },
 ];
 
 export function NewGameDialog({
@@ -37,6 +51,7 @@ export function NewGameDialog({
   const [setting, setSetting] = useState("");
   const [objective, setObjective] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,7 +62,7 @@ export function NewGameDialog({
       const response = await fetch("/api/game/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ setting, objective }),
+        body: JSON.stringify({ setting, objective, voiceId }),
       });
 
       if (!response.ok) throw new Error(await response.text());
@@ -57,6 +72,7 @@ export function NewGameDialog({
           setSetting("");
           setObjective("");
           onCreated();
+          router.refresh();
         },
         onAudio(audioUrl) {
           playAudio(audioUrl);
@@ -72,9 +88,15 @@ export function NewGameDialog({
     }
   }
 
-  function applyPreset(preset: (typeof presets)[number]) {
+  function applyPreset(preset: { setting: string; objective: string }) {
     setSetting(preset.setting);
     setObjective(preset.objective);
+  }
+
+  function randomJourney() {
+    const adventure = randomAdventures[Math.floor(Math.random() * randomAdventures.length)];
+    setSetting(adventure.setting);
+    setObjective(adventure.objective);
   }
 
   return (
@@ -103,7 +125,7 @@ export function NewGameDialog({
             variant="outline"
             size="xs"
             type="button"
-            onClick={() => applyPreset(presets[Math.floor(Math.random() * presets.length)])}
+            onClick={randomJourney}
           >
             🎲 Random Journey
           </Button>

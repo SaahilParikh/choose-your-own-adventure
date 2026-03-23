@@ -65,7 +65,7 @@ export function DiceSidebar({ rounds, progress, children }: { rounds: DiceRound[
       <aside
         className={`${
           collapsed ? "translate-x-full" : "translate-x-0"
-        } fixed inset-y-14 right-0 z-30 w-72 border-l border-border/50 bg-card/80 backdrop-blur-sm transition-transform lg:relative lg:inset-y-auto lg:translate-x-0`}
+        } fixed inset-y-14 right-0 z-30 w-72 border-l border-border/50 bg-card/80 backdrop-blur-sm transition-transform ${!collapsed ? "lg:relative lg:inset-y-auto" : ""}`}
       >
         <div className="flex items-center justify-between border-b border-border/50 px-3 py-2">
           <div className="flex items-center gap-1.5 text-sm font-medium">
