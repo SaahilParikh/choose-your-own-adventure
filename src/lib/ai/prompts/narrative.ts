@@ -4,11 +4,11 @@ import { defaultAntiCheatRules, composeAntiCheatPrompt } from "./anti-cheat";
 const HISTORY_WINDOW = 3;
 
 function arcPhase(progress: number): string {
-  if (progress < 20) return "ACT 1 — SETUP: Establish the world, introduce threats, plant seeds. The player is finding their footing.";
-  if (progress < 45) return "ACT 2A — RISING ACTION: Complications mount, alliances form, the path forward becomes clearer but harder.";
-  if (progress < 70) return "ACT 2B — MIDPOINT SHIFT: A major revelation or reversal. Stakes escalate dramatically. No turning back.";
-  if (progress < 90) return "ACT 3A — CLIMAX APPROACH: Everything converges. Final preparations, last-chance encounters, tension at maximum.";
-  return "ACT 3B — CLIMAX & RESOLUTION: The final confrontation. Write a satisfying conclusion that pays off the journey.";
+  if (progress < 20) return "SETUP — The player is finding their footing.";
+  if (progress < 50) return "RISING ACTION — Stakes are increasing.";
+  if (progress < 80) return "ESCALATION — Tension is high, things are converging.";
+  if (progress < 95) return "CLIMAX APPROACH — The final push.";
+  return "RESOLUTION — Wrap it up satisfyingly.";
 }
 
 export class NarrativePromptBuilder implements PromptBuilder {
@@ -32,40 +32,7 @@ export class NarrativePromptBuilder implements PromptBuilder {
             .join("\n")
         : "No previous turns.";
 
-    return `You are a game master for a choose-your-own-adventure game. You write tight, punchy prose — never flowery or verbose.
-
-## Style Rules
-- Keep each scene to 2-3 SHORT paragraphs max.
-- Focus on cause and effect: what the player did → what happened → what they now face.
-- End every scene on a decision point or tension. Prime the player to act.
-- No filler descriptions. Every sentence should move the story forward or raise stakes.
-- Write like a page-turner novel, not a fantasy encyclopedia.
-
-## Story Arc & Progress
-Current progress: ${progress}%
-Current arc phase: ${arcPhase(progress)}
-
-Write your narrative to match this arc phase. The story should feel like it's building toward something — not just a series of disconnected events.
-
-You MUST include a "progress" field in the updated worldState. Rules:
-- Progress reflects how close the STORY is to resolving the objective — not how well the player rolled.
-- Progress moves slowly: typical delta is -5 to +10 per turn.
-- Evaluate progress based on PLOT position: did this turn move the narrative closer to or further from the objective?
-- A successful roll on an irrelevant action = 0 progress.
-- A failed roll that accidentally advances the plot (e.g., getting captured brings you to the villain) CAN increase progress.
-- A successful roll on a relevant action that doesn't actually change the story situation = 0 progress.
-- Setbacks, betrayals, and complications that push the player further from the goal = negative progress.
-- Trivial actions (walking, resting, looking) = 0 progress regardless of dice outcome.
-- Progress CANNOT go below 0 or above 100.
-
-## Winning and Losing
-- Do NOT set status to "won" just because progress hits 100. Instead:
-  - When progress reaches 90+, begin steering toward a climactic confrontation or final challenge.
-  - Only set status to "won" when the player has ACTUALLY accomplished the objective through a meaningful final action AND progress is 95+.
-  - The winning turn should feel like a CLIMAX — write a satisfying resolution that wraps up the story.
-  - Write 3-4 paragraphs for the final scene, not the usual 2-3.
-- For losing: if progress hits 0 (from above 0), write a dramatic failure scene. Set status to "lost".
-- A player cannot win by doing trivial things. The final action must be proportional to the objective.
+    return `You are a game master. Write tight, punchy prose. Cause and effect. End on tension.
 
 ## Setting
 ${context.setting}
@@ -73,7 +40,19 @@ ${context.setting}
 ## Objective
 ${context.objective}
 
-## Current World State
+## Story Arc
+Progress: ${progress}% — ${arcPhase(progress)}
+Let the progress guide your pacing. The story should build naturally toward the objective.
+
+## Progress Rules
+Update "progress" in worldState (0-100). Progress tracks where the PLOT is, not dice outcomes.
+- Only meaningful narrative advancement changes progress. Trivial or irrelevant actions = 0.
+- Players cannot game progress by describing easy actions with grand intent.
+- At 95%+, only set status "won" if the player actually accomplishes the objective in a satisfying way.
+- At 0% (from above 0), set status "lost". Write a dramatic ending.
+- Win/loss scenes should be longer and feel like a real conclusion.
+
+## World State
 \`\`\`json
 ${JSON.stringify(context.worldState, null, 2)}
 \`\`\`
@@ -83,11 +62,11 @@ ${historyBlock}
 ${this.buildDiceSection(actionChecks)}${composeAntiCheatPrompt(this.rules)}
 
 ## Response Format
-Respond with ONLY valid JSON (no markdown fences, no extra text):
+ONLY valid JSON (no markdown fences):
 {
-  "narrative": "2-3 short paragraphs (3-4 for win/loss scenes), cause-and-effect, ending on a hook",
-  "worldState": { updated world state object including progress },
-  "imagePrompt": "A single sentence describing ONLY the current scene visually. Do NOT reference past events, previous locations, or story history. Describe what the player sees RIGHT NOW in this moment.",
+  "narrative": "the scene",
+  "worldState": { updated world state with progress },
+  "imagePrompt": "One sentence describing the current scene visually. Only what the player sees right now.",
   "status": "active" | "won" | "lost"
 }`;
   }
@@ -103,16 +82,14 @@ Respond with ONLY valid JSON (no markdown fences, no extra text):
     const lines = actionChecks.map((a) => {
       let line = `- "${a.action}" — Difficulty: ${a.difficulty}/100, Rolled: ${a.roll} → ${a.success ? "SUCCESS" : "FAILED"}`;
       if (a.repercussion) {
-        line += `\n  Repercussion: ${a.repercussion.description} (Severity: ${a.repercussion.severity}/100, Rolled: ${a.repercussion.roll} → ${a.repercussion.mild ? "Mild consequence" : "Harsh consequence"})`;
+        line += `\n  Repercussion: ${a.repercussion.description} (${a.repercussion.mild ? "Mild" : "Harsh"})`;
       }
       return line;
     }).join("\n");
     return `
-## Dice Roll Results
-The player's actions have been evaluated. You MUST honor these results:
+## Dice Results
+Honor these outcomes in the narrative:
 ${lines}
-
-IMPORTANT: Write the narrative to reflect these exact outcomes. Successful actions succeed in the story. Failed actions fail in the story with the specified repercussions. Do NOT override the dice results.
 `;
   }
 }
