@@ -1,11 +1,11 @@
 "use client";
 
+import { useState, type ReactNode } from "react";
 import type { ActionCheck } from "@/lib/ai/types";
-import { Dices, Check, X, ChevronRight, ChevronLeft } from "lucide-react";
+import { Dices, Check, X, ChevronRight, ChevronLeft, ChevronDown } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 
 function difficultyColor(d: number) {
   if (d <= 10) return "bg-emerald-500";
@@ -31,8 +31,25 @@ export type DiceRound = {
   actions: ActionCheck[];
 };
 
-export function DiceSidebar({ rounds, progress }: { rounds: DiceRound[]; progress: number }) {
+export function DiceSidebar({ rounds, progress, children }: { rounds: DiceRound[]; progress: number; children?: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set([0]));
+
+  const reversed = [...rounds].reverse();
+
+  function toggleTurn(index: number) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }
+
+  // Always keep the newest turn (index 0) in expanded when rounds change
+  if (reversed.length > 0 && !expanded.has(0) && rounds.length > expanded.size) {
+    // This is handled reactively below
+  }
 
   return (
     <>
@@ -55,14 +72,17 @@ export function DiceSidebar({ rounds, progress }: { rounds: DiceRound[]; progres
             <Dices className="size-4" />
             Dice Log
           </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="hidden lg:flex"
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            {collapsed ? <ChevronLeft className="size-3" /> : <ChevronRight className="size-3" />}
-          </Button>
+          <div className="flex items-center gap-1">
+            {children}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="hidden lg:flex"
+              onClick={() => setCollapsed(!collapsed)}
+            >
+              {collapsed ? <ChevronLeft className="size-3" /> : <ChevronRight className="size-3" />}
+            </Button>
+          </div>
         </div>
 
         <div className="border-b border-border/50 px-3 py-2">
@@ -84,62 +104,72 @@ export function DiceSidebar({ rounds, progress }: { rounds: DiceRound[]; progres
         </div>
 
         <ScrollArea className="h-[calc(100%-5rem)]">
-          <div className="space-y-3 p-3">
+          <div className="space-y-1 p-3">
             {rounds.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-8">
                 Dice rolls will appear here as you play.
               </p>
             )}
-            {[...rounds].reverse().map((round, ri) => (
-              <div key={ri}>
-                {ri > 0 && <Separator className="mb-3 opacity-30" />}
-                <div className={`mb-2 text-xs ${ri === 0 ? "text-primary font-semibold" : "text-muted-foreground"}`}>
-                  {ri === 0 && <span className="mr-1">▶</span>}
-                  Turn {round.turnNumber}: <span className="italic">{round.playerAction}</span>
-                </div>
-                <div className="space-y-2">
-                  {round.actions.map((a, i) => (
-                    <div key={i} className={`rounded-lg border p-2 space-y-1 ${ri === 0 ? "border-primary/40 bg-primary/5" : "border-border/30 bg-background/50"}`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium text-foreground/90 truncate">
-                          {a.action}
-                        </span>
-                        {a.success ? (
-                          <Check className="size-3.5 text-emerald-500 shrink-0" />
-                        ) : (
-                          <X className="size-3.5 text-red-500 shrink-0" />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${difficultyColor(a.difficulty)}`}
-                            style={{ width: `${a.difficulty}%` }}
-                          />
+            {reversed.map((round, ri) => {
+              const isExpanded = ri === 0 || expanded.has(ri);
+              return (
+                <div key={ri}>
+                  {ri > 0 && <Separator className="mb-1 opacity-30" />}
+                  <button
+                    type="button"
+                    onClick={() => toggleTurn(ri)}
+                    className={`flex w-full items-center gap-1 rounded px-1 py-1 text-left text-xs hover:bg-muted/50 ${ri === 0 ? "text-primary font-semibold" : "text-muted-foreground"}`}
+                  >
+                    {isExpanded ? <ChevronDown className="size-3 shrink-0" /> : <ChevronRight className="size-3 shrink-0" />}
+                    {ri === 0 && <span>▶</span>}
+                    <span className="truncate">Turn {round.turnNumber}: <span className="italic">{round.playerAction}</span></span>
+                  </button>
+                  {isExpanded && (
+                    <div className="space-y-2 pl-4 pt-1 pb-2">
+                      {round.actions.map((a, i) => (
+                        <div key={i} className={`rounded-lg border p-2 space-y-1 ${ri === 0 ? "border-primary/40 bg-primary/5" : "border-border/30 bg-background/50"}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-foreground/90 truncate">
+                              {a.action}
+                            </span>
+                            {a.success ? (
+                              <Check className="size-3.5 text-emerald-500 shrink-0" />
+                            ) : (
+                              <X className="size-3.5 text-red-500 shrink-0" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${difficultyColor(a.difficulty)}`}
+                                style={{ width: `${a.difficulty}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-muted-foreground tabular-nums">
+                              🎲{a.roll}/{a.difficulty}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {difficultyLabel(a.difficulty)}
+                          </div>
+                          {a.repercussion && (
+                            <div
+                              className={`rounded px-2 py-1 text-[10px] ${
+                                a.repercussion.mild
+                                  ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+                                  : "bg-red-500/10 text-red-600 dark:text-red-400"
+                              }`}
+                            >
+                              {a.repercussion.mild ? "⚠ Mild" : "💀 Harsh"}: {a.repercussion.description}
+                            </div>
+                          )}
                         </div>
-                        <span className="text-[10px] text-muted-foreground tabular-nums">
-                          🎲{a.roll}/{a.difficulty}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {difficultyLabel(a.difficulty)}
-                      </div>
-                      {a.repercussion && (
-                        <div
-                          className={`rounded px-2 py-1 text-[10px] ${
-                            a.repercussion.mild
-                              ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
-                              : "bg-red-500/10 text-red-600 dark:text-red-400"
-                          }`}
-                        >
-                          {a.repercussion.mild ? "⚠ Mild" : "💀 Harsh"}: {a.repercussion.description}
-                        </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </ScrollArea>
       </aside>

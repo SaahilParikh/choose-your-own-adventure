@@ -14,6 +14,7 @@ export function ActionInput({
   gameId,
   tokenBalance,
   disabled: externalDisabled,
+  voiceId,
   onStreamingTurn,
   onDiceRoll,
   onProgressUpdate,
@@ -21,6 +22,7 @@ export function ActionInput({
   gameId: string;
   tokenBalance: number;
   disabled?: boolean;
+  voiceId?: string;
   onStreamingTurn?: (turn: StreamingTurn | null) => void;
   onDiceRoll?: (playerAction: string, actions: ActionCheck[]) => void;
   onProgressUpdate?: (progress: number) => void;

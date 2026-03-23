@@ -1,4 +1,4 @@
-import { PollyClient, SynthesizeSpeechCommand } from "@aws-sdk/client-polly";
+import { PollyClient, SynthesizeSpeechCommand, type VoiceId } from "@aws-sdk/client-polly";
 
 let client: PollyClient | null = null;
 
@@ -9,12 +9,20 @@ function getPollyClient(): PollyClient {
   return client;
 }
 
-export async function synthesizeSpeech(text: string): Promise<string | null> {
+export const NARRATOR_VOICES = [
+  { id: "Matthew", name: "Matthew", gender: "Male" },
+  { id: "Danielle", name: "Danielle", gender: "Female" },
+  { id: "Stephen", name: "Stephen", gender: "Male" },
+  { id: "Ruth", name: "Ruth", gender: "Female" },
+  { id: "Joanna", name: "Joanna", gender: "Female" },
+] as const;
+
+export async function synthesizeSpeech(text: string, voiceId: string = "Matthew"): Promise<string | null> {
   try {
     const command = new SynthesizeSpeechCommand({
       Text: text,
       OutputFormat: "mp3",
-      VoiceId: "Matthew",
+      VoiceId: voiceId as VoiceId,
       Engine: "generative",
     });
 

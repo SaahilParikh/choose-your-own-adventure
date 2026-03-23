@@ -8,6 +8,7 @@ import { GameView, type StreamingTurn } from "./game-view";
 import { GameOver } from "./game-over";
 import { NewGameDialog } from "./new-game-dialog";
 import { DiceSidebar, type DiceRound } from "./dice-sidebar";
+import { VoiceSelector } from "./voice-selector";
 import { Button } from "@/components/ui/button";
 import { PanelLeftClose, PanelLeft, Plus, Sparkles } from "lucide-react";
 import type { ActionCheck } from "@/lib/ai/types";
@@ -29,6 +30,7 @@ export function GameShell({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [streamingTurn, setStreamingTurn] = useState<StreamingTurn | null>(null);
   const [diceRounds, setDiceRounds] = useState<DiceRound[]>([]);
+  const [voiceId, setVoiceId] = useState("Matthew");
   const [currentProgress, setCurrentProgress] = useState(
     (activeGame?.worldState as WorldState | undefined)?.progress ?? 10
   );
@@ -100,6 +102,7 @@ export function GameShell({
               turns={activeGame.turns}
               tokenBalance={tokenBalance}
               streamingTurn={streamingTurn}
+              voiceId={voiceId}
               onStreamingTurn={setStreamingTurn}
               onDiceRoll={addDiceRound}
               onProgressUpdate={setCurrentProgress}
@@ -111,6 +114,7 @@ export function GameShell({
                 turns={activeGame.turns}
                 tokenBalance={tokenBalance}
                 streamingTurn={streamingTurn}
+                voiceId={voiceId}
                 onStreamingTurn={setStreamingTurn}
                 onDiceRoll={addDiceRound}
                 onProgressUpdate={setCurrentProgress}
@@ -141,12 +145,17 @@ export function GameShell({
       </div>
 
       {/* Right sidebar - dice log */}
-      {activeGame && <DiceSidebar rounds={diceRounds} progress={currentProgress} />}
+      {activeGame && (
+        <DiceSidebar rounds={diceRounds} progress={currentProgress}>
+          <VoiceSelector value={voiceId} onChange={setVoiceId} />
+        </DiceSidebar>
+      )}
 
       <NewGameDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onCreated={handleGameCreated}
+        voiceId={voiceId}
       />
     </>
   );

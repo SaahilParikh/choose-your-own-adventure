@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) return new Response("Unauthorized", { status: 401 });
 
-  const { gameId, playerAction } = await request.json();
+  const { gameId, playerAction, voiceId } = await request.json();
 
   const [game] = await db.select().from(games).where(and(eq(games.id, gameId), eq(games.userId, session.user.id)));
   if (!game || game.status !== "active") return new Response("Invalid game", { status: 400 });
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
         // Generate image and audio in parallel, track whether image was generated
         let imageGenerated = false;
 
-        const audioPromise = synthesizeSpeech(narrativeResponse.narrative).then((audioBase64) => {
+        const audioPromise = synthesizeSpeech(narrativeResponse.narrative, voiceId).then((audioBase64) => {
           if (audioBase64) {
             send("audio", { audioUrl: `data:audio/mp3;base64,${audioBase64}` });
           }

@@ -27,10 +27,12 @@ export function NewGameDialog({
   open,
   onOpenChange,
   onCreated,
+  voiceId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+  voiceId?: string;
 }) {
   const [setting, setSetting] = useState("");
   const [objective, setObjective] = useState("");

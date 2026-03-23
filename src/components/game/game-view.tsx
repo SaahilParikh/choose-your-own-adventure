@@ -25,6 +25,7 @@ export function GameView({
   turns,
   tokenBalance,
   streamingTurn,
+  voiceId,
   onStreamingTurn,
   onDiceRoll,
   onProgressUpdate,
@@ -33,6 +34,7 @@ export function GameView({
   turns: GameTurn[];
   tokenBalance: number;
   streamingTurn?: StreamingTurn | null;
+  voiceId?: string;
   onStreamingTurn?: (turn: StreamingTurn | null) => void;
   onDiceRoll?: (playerAction: string, actions: ActionCheck[]) => void;
   onProgressUpdate?: (progress: number) => void;
@@ -97,6 +99,7 @@ export function GameView({
           gameId={game.id}
           tokenBalance={tokenBalance}
           disabled={!!streamingTurn}
+          voiceId={voiceId}
           onStreamingTurn={onStreamingTurn}
           onDiceRoll={onDiceRoll}
           onProgressUpdate={onProgressUpdate}

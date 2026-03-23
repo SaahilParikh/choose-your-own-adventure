@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) return new Response("Unauthorized", { status: 401 });
 
-  const { setting, objective } = await request.json();
+  const { setting, objective, voiceId } = await request.json();
 
   const balance = await getBalance(session.user.id);
   if (balance < 1) return new Response("Insufficient balance", { status: 402 });
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
         // Generate image and audio in parallel
         let imageGenerated = false;
 
-        const audioPromise = synthesizeSpeech(narrativeResponse.narrative).then((audioBase64) => {
+        const audioPromise = synthesizeSpeech(narrativeResponse.narrative, voiceId).then((audioBase64) => {
           if (audioBase64) {
             send("audio", { audioUrl: `data:audio/mp3;base64,${audioBase64}` });
           }
