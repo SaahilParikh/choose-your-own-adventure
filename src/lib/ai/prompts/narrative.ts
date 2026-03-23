@@ -48,8 +48,10 @@ Let the progress guide your pacing. The story should build naturally toward the 
 
 ## Progress Rules
 Update "progress" in worldState (0-100). Progress tracks where the PLOT is, not dice outcomes.
-- Only meaningful narrative advancement changes progress. Trivial or irrelevant actions = 0.
-- Players cannot game progress by describing easy actions with grand intent.
+- Progress should move in SMALL increments: +1 to +3 for good turns, -1 to -3 for bad ones. Only truly pivotal moments (defeating a major enemy, solving a critical puzzle, a major betrayal) warrant +5 to +8.
+- Discovering something is NOT progress. Using a discovery to advance the objective IS progress.
+- Traveling toward something is NOT progress. Arriving and accomplishing something there IS progress.
+- Finding an item is NOT progress. Using that item effectively IS progress.
 - CRITICAL: Do NOT embellish vague or trivial player actions into major plot breakthroughs. If the player says "do a trivial task" or something vague, write a proportionally small scene. Looking around, exploring, and investigating are fine — they can reveal information and set up future actions — but they don't advance progress on their own. Progress comes from the player acting on what they learn.
 - The player must drive the story. You react to what they do, you don't gift them progress.
 - At 95%+, only set status "won" if the player actually accomplishes the objective in a satisfying way.
