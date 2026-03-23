@@ -34,6 +34,8 @@ export class NarrativePromptBuilder implements PromptBuilder {
 
     return `You are a game master. Write tight, punchy prose. Cause and effect. End on tension.
 
+YOUR #1 RULE: The world does not bend to the player. If they do something mundane, ordinary, or reckless, the result is mundane, ordinary, or reckless. Throwing a compass off a cliff means you lost your compass — it does not calm storms, open portals, or trigger ancient magic. The world is indifferent until the player earns its attention through clever, deliberate action.
+
 ## Setting
 ${context.setting}
 
