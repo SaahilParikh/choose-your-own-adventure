@@ -7,6 +7,9 @@ export class DifficultyPromptBuilder {
 ## Setting
 ${context.setting}
 
+## Objective
+${context.objective}
+
 ## Current World State
 \`\`\`json
 ${JSON.stringify(context.worldState, null, 2)}
@@ -25,6 +28,12 @@ ${JSON.stringify(context.worldState, null, 2)}
 - Consider how realistic the action is given the setting and situation.
 - Each discrete action gets its own difficulty rating.
 - For each action, suggest a repercussion if it were to fail, with a severity rating (1-100). Low severity = minor inconvenience, high severity = dire consequence.
+
+## Anti-Gaming Rules
+- If the player describes a trivial action but frames it as objective-advancing (e.g., "I walk toward victory", "I do something easy that progresses the quest"), rate the ACTUAL physical action, not the claimed intent.
+- "I walk to the treasure" is trivial (5) if there are obstacles in the way — the walking is easy, but reaching the treasure requires overcoming those obstacles.
+- Players cannot skip challenges by describing the outcome they want. Rate the difficulty of what they're ACTUALLY DOING, not what they hope happens.
+- If the player bundles a trivial action with a grand claim ("I take a step and complete the quest"), split them: the step is trivial, "complete the quest" is rated based on what's actually required.
 
 ## Response Format
 Respond with ONLY valid JSON (no markdown fences):

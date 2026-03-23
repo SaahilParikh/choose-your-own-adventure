@@ -3,6 +3,14 @@ import { defaultAntiCheatRules, composeAntiCheatPrompt } from "./anti-cheat";
 
 const HISTORY_WINDOW = 3;
 
+function arcPhase(progress: number): string {
+  if (progress < 20) return "ACT 1 — SETUP: Establish the world, introduce threats, plant seeds. The player is finding their footing.";
+  if (progress < 45) return "ACT 2A — RISING ACTION: Complications mount, alliances form, the path forward becomes clearer but harder.";
+  if (progress < 70) return "ACT 2B — MIDPOINT SHIFT: A major revelation or reversal. Stakes escalate dramatically. No turning back.";
+  if (progress < 90) return "ACT 3A — CLIMAX APPROACH: Everything converges. Final preparations, last-chance encounters, tension at maximum.";
+  return "ACT 3B — CLIMAX & RESOLUTION: The final confrontation. Write a satisfying conclusion that pays off the journey.";
+}
+
 export class NarrativePromptBuilder implements PromptBuilder {
   private rules: AntiCheatRule[];
 
@@ -12,6 +20,7 @@ export class NarrativePromptBuilder implements PromptBuilder {
 
   buildSystemPrompt(context: GameContext, actionChecks?: ActionCheck[]): string {
     const recentHistory = context.turnHistory.slice(-HISTORY_WINDOW);
+    const progress = context.worldState.progress ?? 10;
 
     const historyBlock =
       recentHistory.length > 0
@@ -32,25 +41,30 @@ export class NarrativePromptBuilder implements PromptBuilder {
 - No filler descriptions. Every sentence should move the story forward or raise stakes.
 - Write like a page-turner novel, not a fantasy encyclopedia.
 
-## Progress System
-The player's progress toward their objective is currently at ${context.worldState.progress ?? 10}%.
+## Story Arc & Progress
+Current progress: ${progress}%
+Current arc phase: ${arcPhase(progress)}
+
+Write your narrative to match this arc phase. The story should feel like it's building toward something — not just a series of disconnected events.
 
 You MUST include a "progress" field in the updated worldState. Rules:
 - Progress moves slowly: typical delta is -5 to +10 per turn
-- Successful actions advancing the objective: +3 to +10
-- Failed dice rolls (if provided): -2 to -5  
+- ONLY actions that meaningfully advance the objective increase progress. Trivial actions (walking, looking, resting) give 0 progress even if successful.
+- The action must be RELEVANT to the objective to earn progress. "I take a stroll" near the quest goal is still 0 progress.
+- Successful actions that directly advance the objective: +3 to +10 (scaled by how significant the advance is)
+- Failed dice rolls on objective-relevant actions: -2 to -5
 - Harsh repercussions: -5 to -10
-- Neutral/exploratory actions: +1 or 0
 - Catastrophic failures: -10 to -15
 - Progress CANNOT go below 0 or above 100
-- If progress reaches 100: set status to "won"
-- If progress reaches 0 AND it was previously above 0: set status to "lost"
-- Use progress to calibrate narrative tension:
-  - 0-20%: early exploration, low stakes
-  - 20-50%: rising action, stakes increasing
-  - 50-80%: high tension, climax approaching
-  - 80-99%: final push, everything on the line
-- The narrative arc can shift as the story progresses — setbacks should feel earned, not random
+
+## Winning and Losing
+- Do NOT set status to "won" just because progress hits 100. Instead:
+  - When progress reaches 90+, begin steering toward a climactic confrontation or final challenge
+  - Only set status to "won" when the player has ACTUALLY accomplished the objective through a meaningful final action AND progress is 95+
+  - The winning turn should feel like a CLIMAX — write a satisfying resolution that wraps up the story
+  - Write 3-4 paragraphs for the final scene, not the usual 2-3
+- For losing: if progress hits 0 (from above 0), write a dramatic failure scene. Set status to "lost".
+- A player cannot win by doing trivial things. The final action must be proportional to the objective.
 
 ## Setting
 ${context.setting}
@@ -70,8 +84,8 @@ ${this.buildDiceSection(actionChecks)}${composeAntiCheatPrompt(this.rules)}
 ## Response Format
 Respond with ONLY valid JSON (no markdown fences, no extra text):
 {
-  "narrative": "2-3 short paragraphs, cause-and-effect, ending on a hook",
-  "worldState": { updated world state object },
+  "narrative": "2-3 short paragraphs (3-4 for win/loss scenes), cause-and-effect, ending on a hook",
+  "worldState": { updated world state object including progress },
   "imagePrompt": "A single sentence describing ONLY the current scene visually. Do NOT reference past events, previous locations, or story history. Describe what the player sees RIGHT NOW in this moment.",
   "status": "active" | "won" | "lost"
 }`;
