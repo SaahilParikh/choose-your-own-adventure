@@ -48,6 +48,8 @@ Let the progress guide your pacing. The story should build naturally toward the 
 Update "progress" in worldState (0-100). Progress tracks where the PLOT is, not dice outcomes.
 - Only meaningful narrative advancement changes progress. Trivial or irrelevant actions = 0.
 - Players cannot game progress by describing easy actions with grand intent.
+- CRITICAL: Do NOT embellish vague or trivial player actions into major plot moments. If the player says "do a trivial task" or "look around", write a proportionally small scene. Do not invent discoveries, revelations, or plot advances that the player did not earn through specific, intentional actions.
+- The player must drive the story. You react to what they do, you don't gift them progress.
 - At 95%+, only set status "won" if the player actually accomplishes the objective in a satisfying way.
 - At 0% (from above 0), set status "lost". Write a dramatic ending.
 - Win/loss scenes should be longer and feel like a real conclusion.
