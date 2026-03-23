@@ -88,7 +88,7 @@ ONLY valid JSON (no markdown fences):
     }).join("\n");
     return `
 ## Dice Results
-Honor these outcomes in the narrative:
+These outcomes are FINAL. You MUST reflect them exactly in the narrative — successful actions succeed, failed actions fail with their repercussions. Do not override or soften the results.
 ${lines}
 `;
   }
