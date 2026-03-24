@@ -1,8 +1,8 @@
 import { ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { getBedrockClient } from "./bedrock";
-import { buildForcesPrompt, buildSpawnForcesPrompt } from "./prompts/forces";
-import type { MetaForce, WorldAgent, ForceAction, FateRoll, GameContext, ActionCheck } from "./types";
-import type { WorldState, CharacterSheet } from "@/db/schema";
+import { buildSpawnForcesPrompt } from "./prompts/forces";
+import type { MetaForce, WorldAgent, ForceAction, ActionCheck } from "./types";
+import type { CharacterSheet } from "@/db/schema";
 import { parseAIJson } from "./parse-json";
 
 export interface RawForceAction {
@@ -43,60 +43,6 @@ export async function spawnForces(
     forces,
     inputTokens: response.usage?.inputTokens ?? 0,
     outputTokens: response.usage?.outputTokens ?? 0,
-  };
-}
-
-export async function getForceActions(
-  forces: MetaForce[],
-  agents: WorldAgent[],
-  worldState: WorldState,
-  playerAction: string,
-  fate: FateRoll,
-): Promise<{ rawActions: RawForceAction[]; newAgents: WorldAgent[]; tokensUsed: { input: number; output: number } }> {
-  const { system, user } = buildForcesPrompt(forces, agents, worldState.location, worldState.progress, playerAction, fate);
-  const response = await getBedrockClient().send(
-    new ConverseCommand({
-      modelId: process.env.BEDROCK_NARRATIVE_MODEL_ID!,
-      system: [{ text: system }],
-      messages: [{ role: "user", content: [{ text: user }] }],
-      inferenceConfig: { maxTokens: 2048, temperature: 0.5 },
-    }),
-  );
-  const text = response.output?.message?.content?.[0]?.text ?? "";
-
-  const parsed = parseAIJson(text) as {
-    forceActions: {
-      forceId: string;
-      action: string | null;
-      targetAgentId?: string | null;
-      newAgent?: WorldAgent | null;
-    }[];
-  };
-
-  const rawActions: RawForceAction[] = [];
-  const newAgents: WorldAgent[] = [];
-
-  for (const raw of parsed.forceActions) {
-    const force = forces.find((f) => f.id === raw.forceId);
-    if (!force || !raw.action) continue;
-
-    rawActions.push({
-      forceId: raw.forceId,
-      forceName: force.name,
-      action: raw.action,
-      targetAgentId: raw.targetAgentId ?? undefined,
-      characterSheet: force.characterSheet,
-      newAgent: raw.newAgent,
-    });
-  }
-
-  return {
-    rawActions,
-    newAgents,
-    tokensUsed: {
-      input: response.usage?.inputTokens ?? 0,
-      output: response.usage?.outputTokens ?? 0,
-    },
   };
 }
 
@@ -148,97 +94,4 @@ export function assembleForceActions(
   }
 
   return { actions, newAgents };
-}
-
-/** @deprecated Use getForceActions + evaluateDifficultyBatch + assembleForceActions instead */
-export async function evaluateForces(
-  forces: MetaForce[],
-  agents: WorldAgent[],
-  worldState: WorldState,
-  setting: string,
-  objective: string,
-  playerAction: string,
-  fate: FateRoll,
-): Promise<{ actions: ForceAction[]; newAgents: WorldAgent[]; tokensUsed: { input: number; output: number } }> {
-  // Keep old implementation for backward compatibility
-  const { evaluateDifficulty } = await import("./difficulty");
-  const { system, user } = buildForcesPrompt(forces, agents, worldState.location, worldState.progress, playerAction, fate);
-  const response = await getBedrockClient().send(
-    new ConverseCommand({
-      modelId: process.env.BEDROCK_NARRATIVE_MODEL_ID!,
-      system: [{ text: system }],
-      messages: [{ role: "user", content: [{ text: user }] }],
-      inferenceConfig: { maxTokens: 2048, temperature: 0.5 },
-    }),
-  );
-  const text = response.output?.message?.content?.[0]?.text ?? "";
-  let tokensUsed = {
-    input: response.usage?.inputTokens ?? 0,
-    output: response.usage?.outputTokens ?? 0,
-  };
-
-  const parsed = parseAIJson(text) as {
-    forceActions: {
-      forceId: string;
-      action: string | null;
-      targetAgentId?: string | null;
-      newAgent?: WorldAgent | null;
-    }[];
-  };
-
-  const actions: ForceAction[] = [];
-  const newAgents: WorldAgent[] = [];
-
-  for (const raw of parsed.forceActions) {
-    const force = forces.find((f) => f.id === raw.forceId);
-    if (!force || !raw.action) continue;
-
-    const forceContext: GameContext = {
-      setting,
-      objective,
-      worldState: { ...worldState, characterSheet: force.characterSheet },
-      turnHistory: [],
-    };
-
-    try {
-      const diffResult = await evaluateDifficulty(forceContext, raw.action, fate);
-      tokensUsed.input += diffResult.inputTokens;
-      tokensUsed.output += diffResult.outputTokens;
-
-      for (const check of diffResult.actions) {
-        actions.push({
-          forceId: raw.forceId,
-          forceName: force.name,
-          action: check.action,
-          targetAgentId: raw.targetAgentId ?? undefined,
-          cost: 0,
-          difficulty: check.difficulty,
-          roll: check.roll,
-          success: check.success,
-          repercussion: check.repercussion,
-        });
-      }
-    } catch {
-      const roll = Math.floor(Math.random() * 100) + 1;
-      actions.push({
-        forceId: raw.forceId,
-        forceName: force.name,
-        action: raw.action,
-        targetAgentId: raw.targetAgentId ?? undefined,
-        cost: 0,
-        difficulty: 40,
-        roll,
-        success: roll >= 40,
-      });
-    }
-
-    if (raw.newAgent) {
-      const anySuccess = actions.some((a) => a.forceId === raw.forceId && a.success);
-      if (anySuccess) {
-        newAgents.push({ ...raw.newAgent, active: true });
-      }
-    }
-  }
-
-  return { actions, newAgents, tokensUsed };
 }

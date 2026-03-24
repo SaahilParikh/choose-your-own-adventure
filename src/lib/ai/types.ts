@@ -24,32 +24,14 @@ export interface NarrativeResponse {
   status: "active" | "won" | "lost";
 }
 
-export interface NarrativeResult {
-  response: NarrativeResponse;
-  tokensUsed: number;
-}
-
 export interface ImageResult {
   base64: string | null;
 }
 
 // ── Provider interfaces (swap models by implementing these) ──
 
-export interface NarrativeProvider {
-  generate(
-    systemPrompt: string,
-    userMessage: string,
-    config?: NarrativeConfig,
-  ): Promise<NarrativeResult>;
-}
-
 export interface ImageProvider {
   generate(prompt: string, config?: ImageConfig): Promise<ImageResult>;
-}
-
-export interface NarrativeConfig {
-  maxTokens?: number;
-  temperature?: number;
 }
 
 export interface ImageConfig {
