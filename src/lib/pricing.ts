@@ -1,97 +1,85 @@
-// Prices from AWS Bedrock pricing page
-const MODEL_PRICING: Record<string, { inputPerToken: number; outputPerToken: number }> = {
-  "us.anthropic.claude-sonnet-4-20250514-v1:0": {
-    inputPerToken: 3 / 1_000_000,
-    outputPerToken: 15 / 1_000_000,
+/**
+ * Cost calculation for game turns.
+ *
+ * Pricing is configured per-provider, not hardcoded.
+ * The turn pipeline reports total token usage; we calculate cost from that.
+ */
+
+// ── Provider pricing configs ────────────────────────────
+
+export interface LLMPricing {
+  inputPerToken: number;   // dollars per token
+  outputPerToken: number;  // dollars per token
+}
+
+export interface ImagePricing {
+  perImage: number;  // dollars per image
+}
+
+export interface AudioPricing {
+  perCharacter: number;  // dollars per character
+}
+
+export interface PricingConfig {
+  llm: Record<string, LLMPricing>;  // keyed by model ID, with "default" fallback
+  image: ImagePricing;
+  audio: AudioPricing;
+  margin: number;  // multiplier (e.g., 1.5 = 50% margin)
+}
+
+// Default pricing — update when provider prices change
+export const DEFAULT_PRICING: PricingConfig = {
+  llm: {
+    "us.anthropic.claude-sonnet-4-20250514-v1:0": {
+      inputPerToken: 3 / 1_000_000,
+      outputPerToken: 15 / 1_000_000,
+    },
+    default: {
+      inputPerToken: 3 / 1_000_000,
+      outputPerToken: 15 / 1_000_000,
+    },
   },
-  default: {
-    inputPerToken: 3 / 1_000_000,
-    outputPerToken: 15 / 1_000_000,
-  },
+  image: { perImage: 0.04 },
+  audio: { perCharacter: 0.000016 },
+  margin: 1.5,
 };
 
-const IMAGE_PRICE = 0.04; // Nova Canvas per image
-const POLLY_PRICE_PER_CHAR = 0.000016; // Generative engine per character
-const MARGIN_MULTIPLIER = 1.5; // 50% margin
+// ── Cost calculation ────────────────────────────────────
+
+export interface TurnCostInput {
+  modelId: string;
+  inputTokens: number;
+  outputTokens: number;
+  imageGenerated: boolean;
+  narrativeTextLength: number;
+}
 
 export interface TurnCost {
-  narrativeCost: number;
-  difficultyCost: number;
-  agentCost: number;
-  relationsCost: number;
-  forcesCost: number;
+  llmCost: number;
   imageCost: number;
-  pollyCost: number;
+  audioCost: number;
   subtotal: number;
   total: number;
   totalCents: number;
 }
 
-export function calculateNarrativeCost(
-  modelId: string,
-  inputTokens: number,
-  outputTokens: number,
-): number {
-  const pricing = MODEL_PRICING[modelId] ?? MODEL_PRICING.default;
-  return inputTokens * pricing.inputPerToken + outputTokens * pricing.outputPerToken;
-}
-
-export function calculateImageCost(): number {
-  return IMAGE_PRICE;
-}
-
-export function calculatePollyCost(text: string): number {
-  return text.length * POLLY_PRICE_PER_CHAR;
-}
-
-export function calculateTurnCost(parts: {
-  narrativeModelId: string;
-  narrativeInputTokens: number;
-  narrativeOutputTokens: number;
-  difficultyInputTokens: number;
-  difficultyOutputTokens: number;
-  agentInputTokens?: number;
-  agentOutputTokens?: number;
-  relationsInputTokens?: number;
-  relationsOutputTokens?: number;
-  forcesInputTokens?: number;
-  forcesOutputTokens?: number;
-  imageGenerated: boolean;
-  narrativeText: string;
-}): TurnCost {
-  const narrativeCost = calculateNarrativeCost(
-    parts.narrativeModelId,
-    parts.narrativeInputTokens,
-    parts.narrativeOutputTokens,
-  );
-  const difficultyCost = calculateNarrativeCost(
-    parts.narrativeModelId,
-    parts.difficultyInputTokens,
-    parts.difficultyOutputTokens,
-  );
-  const agentCost = calculateNarrativeCost(
-    parts.narrativeModelId,
-    parts.agentInputTokens ?? 0,
-    parts.agentOutputTokens ?? 0,
-  );
-  const relationsCost = calculateNarrativeCost(
-    parts.narrativeModelId,
-    parts.relationsInputTokens ?? 0,
-    parts.relationsOutputTokens ?? 0,
-  );
-  const forcesCost = calculateNarrativeCost(
-    parts.narrativeModelId,
-    parts.forcesInputTokens ?? 0,
-    parts.forcesOutputTokens ?? 0,
-  );
-  const imageCost = parts.imageGenerated ? calculateImageCost() : 0;
-  const pollyCost = calculatePollyCost(parts.narrativeText);
-  const subtotal = narrativeCost + difficultyCost + agentCost + relationsCost + forcesCost + imageCost + pollyCost;
-  const total = subtotal * MARGIN_MULTIPLIER;
+export function calculateTurnCost(
+  input: TurnCostInput,
+  pricing: PricingConfig = DEFAULT_PRICING,
+): TurnCost {
+  const llmPricing = pricing.llm[input.modelId] ?? pricing.llm.default;
+  const llmCost = (input.inputTokens * llmPricing.inputPerToken) +
+                  (input.outputTokens * llmPricing.outputPerToken);
+  const imageCost = input.imageGenerated ? pricing.image.perImage : 0;
+  const audioCost = input.narrativeTextLength * pricing.audio.perCharacter;
+  const subtotal = llmCost + imageCost + audioCost;
+  const total = subtotal * pricing.margin;
   const totalCents = Math.ceil(total * 100);
 
-  return { narrativeCost, difficultyCost, agentCost, relationsCost, forcesCost, imageCost, pollyCost, subtotal, total, totalCents };
+  return { llmCost, imageCost, audioCost, subtotal, total, totalCents };
 }
+
+// ── Display ─────────────────────────────────────────────
 
 export function formatBalance(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;

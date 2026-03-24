@@ -170,18 +170,14 @@ export async function POST(request: Request) {
         await Promise.all([audioPromise, imagePromise]);
 
         // Calculate and deduct actual cost (no difficulty call on start)
+        const totalInput = narrativeInputTokens + agentInputTokens + forcesInputTokens;
+        const totalOutput = narrativeOutputTokens + agentOutputTokens + forcesOutputTokens;
         const turnCost = calculateTurnCost({
-          narrativeModelId: modelId,
-          narrativeInputTokens,
-          narrativeOutputTokens,
-          difficultyInputTokens: 0,
-          difficultyOutputTokens: 0,
-          agentInputTokens,
-          agentOutputTokens,
-          forcesInputTokens,
-          forcesOutputTokens,
+          modelId,
+          inputTokens: totalInput,
+          outputTokens: totalOutput,
           imageGenerated,
-          narrativeText: narrativeResponse.narrative,
+          narrativeTextLength: narrativeResponse.narrative.length,
         });
 
         await deductCost(session.user.id, turnCost.totalCents, "game_start", game.id);

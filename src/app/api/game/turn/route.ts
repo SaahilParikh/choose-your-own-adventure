@@ -117,13 +117,11 @@ export async function POST(request: Request) {
         const newTurnNumber = game.turnCount + 1;
 
         const turnCost = calculateTurnCost({
-          narrativeModelId: modelId,
-          narrativeInputTokens: result.totalTokens.input,
-          narrativeOutputTokens: result.totalTokens.output,
-          difficultyInputTokens: 0,
-          difficultyOutputTokens: 0,
+          modelId,
+          inputTokens: result.totalTokens.input,
+          outputTokens: result.totalTokens.output,
           imageGenerated: !!imageUrl,
-          narrativeText: result.narrativeResponse?.narrative ?? "",
+          narrativeTextLength: (result.narrativeResponse?.narrative ?? "").length,
         });
 
         await deductCost(session.user.id, turnCost.totalCents, "game_turn", gameId);
