@@ -11,7 +11,7 @@ export function createAgentsNode(llm: { invoke: Function }) {
     try {
       const { system, user } = buildAgentActionsPrompt(
         agents, state.playerAction, state.playerDiceResults,
-        state.visibility ?? [], state.forceActions,
+        state.visibility ?? [], state.forceActions, state.turnHistory,
       );
 
       const response = await llm.invoke([

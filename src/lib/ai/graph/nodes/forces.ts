@@ -13,7 +13,7 @@ export function createForcesNode(llm: { invoke: Function }) {
     try {
       const { system, user } = buildForcesPrompt(
         forces, agents, state.worldState.location, state.worldState.progress,
-        state.playerAction, state.fate!,
+        state.playerAction, state.fate!, state.turnHistory,
       );
 
       const response = await llm.invoke([

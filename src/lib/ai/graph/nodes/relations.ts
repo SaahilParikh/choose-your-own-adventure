@@ -10,7 +10,7 @@ export function createRelationsNode(llm: { invoke: Function }) {
 
     try {
       const characterSheet = state.worldState.characterSheet ?? { inventory: [], knowledge: [], beliefs: [], traits: [] };
-      const { system, user } = buildRelationsPrompt(agents, characterSheet, state.worldState.location, state.playerAction);
+      const { system, user } = buildRelationsPrompt(agents, characterSheet, state.worldState.location, state.playerAction, state.turnHistory);
 
       const response = await llm.invoke([
         { role: "system", content: system },

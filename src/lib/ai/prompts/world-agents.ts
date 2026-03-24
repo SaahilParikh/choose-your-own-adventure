@@ -1,4 +1,5 @@
-import type { WorldAgent, ActionCheck, AgentVisibility, ForceAction } from "../types";
+import type { WorldAgent, ActionCheck, AgentVisibility, ForceAction, TurnSummary } from "../types";
+import { buildHistoryBlock } from "./shared";
 
 export function buildSpawnAgentsPrompt(setting: string, objective: string): { system: string; user: string } {
   return {
@@ -25,6 +26,7 @@ export function buildAgentActionsPrompt(
   diceResults: ActionCheck[] | undefined,
   visibility: AgentVisibility[],
   forceActions?: ForceAction[],
+  turnHistory: TurnSummary[] = [],
 ): { system: string; user: string } {
   const visMap = new Map(visibility.map((v) => [v.agentId, v]));
 
@@ -49,6 +51,7 @@ export function buildAgentActionsPrompt(
 
   return {
     system: `You are simulating multiple world agents. Each agent takes ONE concrete, physical ACTION this turn — not dialogue, not thoughts, not reactions. An action is something that changes the world state.
+${buildHistoryBlock(turnHistory)}
 
 Good actions: "searches the player's bag", "locks the gate", "sends a messenger to the captain", "moves to block the exit", "casts a ward on the door"
 Bad actions (DO NOT USE): "narrows his eyes", "considers the situation", "feels suspicious", "says something threatening"

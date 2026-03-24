@@ -1,4 +1,5 @@
 import type { GameContext, CharacterSheet } from "../types";
+import { buildHistoryBlock } from "./shared";
 
 // Shared difficulty evaluation language — single source of truth
 const DIFFICULTY_SCALE = `## Difficulty Scale (for baseDifficulty)
@@ -50,7 +51,7 @@ ${context.objective}
 ${JSON.stringify(context.worldState, null, 2)}
 \`\`\`
 ${sheetBlock}
-
+${buildHistoryBlock(context.turnHistory)}
 ${DIFFICULTY_METHOD}
 
 ${DIFFICULTY_SCALE}

@@ -1,4 +1,5 @@
-import type { MetaForce, WorldAgent, FateRoll } from "../types";
+import type { MetaForce, WorldAgent, FateRoll, TurnSummary } from "../types";
+import { buildHistoryBlock } from "./shared";
 
 export function buildForcesPrompt(
   forces: MetaForce[],
@@ -7,6 +8,7 @@ export function buildForcesPrompt(
   progress: number,
   playerAction: string,
   fate: FateRoll,
+  turnHistory: TurnSummary[] = [],
 ): { system: string; user: string } {
   const forceList = forces
     .map((f) => `- ${f.id} "${f.name}": ${f.role}`)
@@ -22,7 +24,7 @@ ${forceList}
 
 Active world agents:
 ${agentList}
-
+${buildHistoryBlock(turnHistory)}
 For each force, describe in 1-2 sentences what they do this turn.
 
 The ANTAGONIST will do anything to make the OBJECTIVE fail — including harming the player if that serves the goal.
