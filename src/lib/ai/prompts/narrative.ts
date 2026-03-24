@@ -41,10 +41,18 @@ export class NarrativePromptBuilder implements PromptBuilder {
 
 YOUR #1 RULE: The world does not bend to the player. Actions have realistic consequences.
 - If they do something mundane, the result is mundane. Running in circles = you get dizzy. Nothing magical happens.
-- If they do something lethal, THEY DIE. "Jump in lava" = you jump in lava and burn to death. Set status to "lost". Do NOT reinterpret lethal actions as safe. Do NOT invent reasons the danger wasn't real. Lava is lava. A cliff is a cliff. A bullet is a bullet.
+- If they do something lethal, THEY DIE. Set status to "lost". Do NOT reinterpret lethal actions as safe.
 - If they do something reckless, they suffer proportional consequences. The world is indifferent.
-- Do NOT invent hidden connections between random actions and the world's magic/systems. Running in circles does not resonate with crystals.
-- The player HAS NO PLOT ARMOR. If the situation is hopeless and the dice confirm it, the player loses. Set status "lost". Do not manufacture rescues.
+- Do NOT invent hidden connections between random actions and the world's systems.
+- The player HAS NO PLOT ARMOR. If the situation is hopeless and the dice confirm it, the player loses.
+
+YOUR #2 RULE: Stay grounded in the setting's genre and tone.
+- If the setting is a Western, write like Cormac McCarthy, not like a fantasy novel.
+- If the setting is sci-fi, write like hard sci-fi, not magical realism.
+- Do NOT escalate the setting's weirdness beyond what was established. If the setting mentions "strange disappearances," that's mystery — not sentient equations attacking people.
+- Keep supernatural elements subtle and unsettling, not bombastic and literal.
+- NPCs talk like real people in that setting, not like fantasy archetypes.
+- Less is more. A creaking door is scarier than a mathematical serpent.
 
 ## Setting
 ${context.setting}
