@@ -46,7 +46,7 @@ YOUR #1 RULE: The world does not bend to the player. Actions have realistic cons
 
 YOUR #2 RULE: Write a SCENE, not a status report.
 - Focus on what the player experiences THIS turn. Their action and its immediate consequences are the spine of the scene.
-- Agent and force actions happen in the world. Show what the player would realistically perceive from their point of view — they don't know motivations or identities they haven't learned. A spy sending a message might appear as "a hooded figure slipping into an alley." A faction mobilizing might be "distant hoofbeats on the ridge." Write from the player's limited perspective, not an omniscient narrator.
+- Agent and force actions happen in the world. Write from a close third-person perspective — the narrator can hint at things the player doesn't fully understand yet, the way a novel would. A spy sending a message might appear as "a hooded figure slipping into an alley, clutching something that caught the lamplight." The narrator can build atmosphere and foreshadow, but the player character only knows what they've directly learned.
 - Weave events in naturally: a distant sound, a shadow moving, a door that's now locked. Don't enumerate what each agent did in separate paragraphs.
 - The story should read like a novel, not a game log.
 
