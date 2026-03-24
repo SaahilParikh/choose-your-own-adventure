@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Swords, Trash2 } from "lucide-react";
 import { deleteGame } from "@/lib/actions/game";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 
 type Game = typeof games.$inferSelect;
@@ -60,7 +61,7 @@ export function GameSidebar({
             </p>
           )}
           {gamesList.map((game) => (
-            <a
+            <Link
               key={game.id}
               href={`/game?id=${game.id}`}
               className={`group flex items-start gap-2 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted/50 ${
@@ -90,7 +91,7 @@ export function GameSidebar({
               >
                 <Trash2 className="size-3 text-muted-foreground hover:text-destructive" />
               </Button>
-            </a>
+            </Link>
           ))}
         </div>
       </ScrollArea>

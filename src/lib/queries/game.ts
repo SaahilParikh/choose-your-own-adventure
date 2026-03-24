@@ -14,6 +14,6 @@ export async function getGameWithTurns(gameId: string, userId: string) {
 }
 
 export async function getActiveGame(userId: string) {
-  const [game] = await db.select().from(games).where(eq(games.userId, userId)).orderBy(desc(games.updatedAt)).limit(1);
-  return game?.status === "active" ? game : null;
+  const [game] = await db.select().from(games).where(and(eq(games.userId, userId), eq(games.status, "active"))).orderBy(desc(games.updatedAt)).limit(1);
+  return game ?? null;
 }

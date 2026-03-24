@@ -80,6 +80,9 @@ export function NewGameDialog({
         onError(message) {
           toast.error(message);
         },
+        onDone() {
+          router.refresh();
+        },
       });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to start game");
@@ -93,10 +96,24 @@ export function NewGameDialog({
     setObjective(preset.objective);
   }
 
-  function randomJourney() {
-    const adventure = randomAdventures[Math.floor(Math.random() * randomAdventures.length)];
-    setSetting(adventure.setting);
-    setObjective(adventure.objective);
+  const [creativity, setCreativity] = useState(0.7);
+
+  async function randomJourney() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/game/random", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creativity }),
+      });
+      const data = await res.json();
+      setSetting(data.setting);
+      setObjective(data.objective);
+    } catch {
+      toast.error("Failed to generate random adventure");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -129,6 +146,20 @@ export function NewGameDialog({
           >
             🎲 Random Journey
           </Button>
+        </div>
+
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span>Grounded</span>
+          <input
+            type="range"
+            min="0.1"
+            max="1.0"
+            step="0.1"
+            value={creativity}
+            onChange={(e) => setCreativity(parseFloat(e.target.value))}
+            className="flex-1 h-1.5 accent-primary"
+          />
+          <span>Unhinged</span>
         </div>
 
         <form onSubmit={handleSubmit} className="grid gap-4">

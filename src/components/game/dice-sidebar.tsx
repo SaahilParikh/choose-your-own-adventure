@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import type { ActionCheck } from "@/lib/ai/types";
-import { Dices, Check, X, ChevronRight, ChevronLeft, ChevronDown } from "lucide-react";
+import type { ActionCheck, WorldAgentAction, ForceAction, FateRoll } from "@/lib/ai/types";
+import { Dices, Check, X, ChevronRight, ChevronLeft, ChevronDown, Bot, Sparkles } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,15 @@ export type DiceRound = {
   turnNumber: number;
   playerAction: string;
   actions: ActionCheck[];
+  agentActions?: WorldAgentAction[];
+  forceActions?: ForceAction[];
+  fate?: FateRoll;
 };
 
-export function DiceSidebar({ rounds, progress, children }: { rounds: DiceRound[]; progress: number; children?: ReactNode }) {
+export function DiceSidebar({ rounds, progress, children, extra }: { rounds: DiceRound[]; progress: number; children?: ReactNode; extra?: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [expanded, setExpanded] = useState<Set<number>>(new Set([0]));
+  const [showBehindScenes, setShowBehindScenes] = useState(true);
 
   const reversed = [...rounds].reverse();
 
@@ -44,11 +48,6 @@ export function DiceSidebar({ rounds, progress, children }: { rounds: DiceRound[
       else next.add(index);
       return next;
     });
-  }
-
-  // Always keep the newest turn (index 0) in expanded when rounds change
-  if (reversed.length > 0 && !expanded.has(0) && rounds.length > expanded.size) {
-    // This is handled reactively below
   }
 
   return (
@@ -101,9 +100,20 @@ export function DiceSidebar({ rounds, progress, children }: { rounds: DiceRound[
               style={{ width: `${progress}%` }}
             />
           </div>
+          {rounds[rounds.length - 1]?.fate && showBehindScenes && <FateIndicator fate={rounds[rounds.length - 1].fate!} />}
+          <label className="flex items-center gap-1.5 pt-1 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showBehindScenes}
+              onChange={(e) => setShowBehindScenes(e.target.checked)}
+              className="size-3 accent-primary"
+            />
+            <span className="text-[10px] text-muted-foreground">Behind the scenes</span>
+          </label>
         </div>
 
         <ScrollArea className="h-[calc(100%-5rem)]">
+          {extra}
           <div className="space-y-1 p-3">
             {rounds.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-8">
@@ -112,6 +122,7 @@ export function DiceSidebar({ rounds, progress, children }: { rounds: DiceRound[
             )}
             {reversed.map((round, ri) => {
               const isExpanded = ri === 0 || expanded.has(ri);
+              const activeAgentActions = round.agentActions?.filter((a) => a.action) ?? [];
               return (
                 <div key={ri}>
                   {ri > 0 && <Separator className="mb-1 opacity-30" />}
@@ -122,49 +133,36 @@ export function DiceSidebar({ rounds, progress, children }: { rounds: DiceRound[
                   >
                     {isExpanded ? <ChevronDown className="size-3 shrink-0" /> : <ChevronRight className="size-3 shrink-0" />}
                     {ri === 0 && <span>▶</span>}
-                    <span className="truncate">Turn {round.turnNumber}: <span className="italic">{round.playerAction}</span></span>
+                    <span className="line-clamp-2">Turn {round.turnNumber}: <span className="italic">{round.playerAction}</span></span>
                   </button>
                   {isExpanded && (
                     <div className="space-y-2 pl-4 pt-1 pb-2">
+                      {/* Player dice */}
                       {round.actions.map((a, i) => (
-                        <div key={i} className={`rounded-lg border p-2 space-y-1 ${ri === 0 ? "border-primary/40 bg-primary/5" : "border-border/30 bg-background/50"}`}>
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-medium text-foreground/90 truncate">
-                              {a.action}
-                            </span>
-                            {a.success ? (
-                              <Check className="size-3.5 text-emerald-500 shrink-0" />
-                            ) : (
-                              <X className="size-3.5 text-red-500 shrink-0" />
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${difficultyColor(a.difficulty)}`}
-                                style={{ width: `${a.difficulty}%` }}
-                              />
-                            </div>
-                            <span className="text-[10px] text-muted-foreground tabular-nums">
-                              🎲{a.roll}/{a.difficulty}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {difficultyLabel(a.difficulty)}
-                          </div>
-                          {a.repercussion && (
-                            <div
-                              className={`rounded px-2 py-1 text-[10px] ${
-                                a.repercussion.mild
-                                  ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
-                                  : "bg-red-500/10 text-red-600 dark:text-red-400"
-                              }`}
-                            >
-                              {a.repercussion.mild ? "⚠ Mild" : "💀 Harsh"}: {a.repercussion.description}
-                            </div>
-                          )}
-                        </div>
+                        <DiceCard key={i} action={a.action} difficulty={a.difficulty} roll={a.roll} success={a.success} repercussion={a.repercussion} highlight={ri === 0} />
                       ))}
+                      {/* Force actions */}
+                      {showBehindScenes && (round.forceActions?.length ?? 0) > 0 && (
+                        <>
+                          <div className="flex items-center gap-1 pt-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                            <Sparkles className="size-3" /> Forces
+                          </div>
+                          {round.forceActions!.map((a, i) => (
+                            <DiceCard key={`force-${i}`} action={`${a.forceName}: ${a.action}`} difficulty={a.difficulty} roll={a.roll} success={a.success} repercussion={a.repercussion} highlight={ri === 0} isAgent />
+                          ))}
+                        </>
+                      )}
+                      {/* Agent dice */}
+                      {showBehindScenes && activeAgentActions.length > 0 && (
+                        <>
+                          <div className="flex items-center gap-1 pt-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                            <Bot className="size-3" /> Agent Actions
+                          </div>
+                          {activeAgentActions.map((a, i) => (
+                            <DiceCard key={`agent-${i}`} action={`${a.agentName}: ${a.action}`} difficulty={a.difficulty} roll={a.roll} success={a.success} repercussion={a.repercussion} highlight={ri === 0} isAgent />
+                          ))}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -174,5 +172,57 @@ export function DiceSidebar({ rounds, progress, children }: { rounds: DiceRound[
         </ScrollArea>
       </aside>
     </>
+  );
+}
+
+function DiceCard({ action, difficulty, baseDifficulty, relevantCharacteristics, roll, success, repercussion, highlight, isAgent }: {
+  action: string;
+  difficulty: number;
+  baseDifficulty?: number;
+  relevantCharacteristics?: string[];
+  roll: number;
+  success: boolean;
+  repercussion?: { description: string; severity: number; roll: number; mild: boolean };
+  highlight: boolean;
+  isAgent?: boolean;
+}) {
+  const adjusted = baseDifficulty != null && baseDifficulty !== difficulty;
+  return (
+    <div className={`rounded-lg border p-2 space-y-1 ${highlight ? (isAgent ? "border-violet-500/40 bg-violet-500/5" : "border-primary/40 bg-primary/5") : "border-border/30 bg-background/50"}`}>
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-xs font-medium text-foreground/90 break-words min-w-0">{action}</span>
+        {success ? <Check className="size-3.5 text-emerald-500 shrink-0" /> : <X className="size-3.5 text-red-500 shrink-0" />}
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
+          <div className={`h-full rounded-full ${difficultyColor(difficulty)}`} style={{ width: `${difficulty}%` }} />
+        </div>
+        <span className="text-[10px] text-muted-foreground tabular-nums">
+          🎲{roll}/{difficulty}{adjusted && <span className="line-through opacity-50 ml-1">{baseDifficulty}</span>}
+        </span>
+      </div>
+      <div className="text-[10px] text-muted-foreground">{difficultyLabel(difficulty)}</div>
+      {relevantCharacteristics && relevantCharacteristics.length > 0 && (
+        <div className="text-[10px] text-blue-500/80">
+          {relevantCharacteristics.join(", ")}
+        </div>
+      )}
+      {repercussion && (
+        <div className={`rounded px-2 py-1 text-[10px] ${repercussion.mild ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" : "bg-red-500/10 text-red-600 dark:text-red-400"}`}>
+          {repercussion.mild ? "⚠ Mild" : "💀 Harsh"}: {repercussion.description}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FateIndicator({ fate }: { fate: FateRoll }) {
+  const color = fate.zScore >= 0.3 ? "text-emerald-500" : fate.zScore <= -0.3 ? "text-red-500" : "text-muted-foreground";
+  const icon = fate.zScore >= 0.3 ? "☘️" : fate.zScore <= -0.3 ? "⚡" : "⚖️";
+  return (
+    <div className={`flex items-center justify-between mt-1.5 text-[10px] ${color}`}>
+      <span>{icon} {fate.description}</span>
+      <span className="tabular-nums opacity-70">z={fate.zScore}</span>
+    </div>
   );
 }

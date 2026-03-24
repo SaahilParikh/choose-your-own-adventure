@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Send, Mic, MicOff } from "lucide-react";
 import { readSSEStream, playAudio, stopAudio } from "@/lib/sse";
 import type { StreamingTurn } from "./game-view";
-import type { ActionCheck } from "@/lib/ai/types";
+import type { ActionCheck, WorldAgentAction, ForceAction, FateRoll } from "@/lib/ai/types";
 
 export function ActionInput({
   gameId,
@@ -17,6 +17,9 @@ export function ActionInput({
   voiceId,
   onStreamingTurn,
   onDiceRoll,
+  onAgentActions,
+  onForceActions,
+  onFate,
   onProgressUpdate,
 }: {
   gameId: string;
@@ -25,7 +28,10 @@ export function ActionInput({
   voiceId?: string;
   onStreamingTurn?: (turn: StreamingTurn | null) => void;
   onDiceRoll?: (playerAction: string, actions: ActionCheck[]) => void;
-  onProgressUpdate?: (progress: number) => void;
+  onAgentActions?: (actions: WorldAgentAction[]) => void;
+  onForceActions?: (actions: ForceAction[]) => void;
+  onFate?: (fate: FateRoll) => void;
+  onProgressUpdate?: (progress: number, worldState?: Record<string, unknown>) => void;
 }) {
   const [action, setAction] = useState("");
   const [loading, setLoading] = useState(false);
@@ -111,11 +117,20 @@ export function ActionInput({
         onDice(data) {
           onDiceRoll?.(playerActionRef.current, data.actions);
         },
+        onAgents(data) {
+          onAgentActions?.(data.actions);
+        },
+        onFate(data) {
+          onFate?.(data);
+        },
+        onForces(data) {
+          onForceActions?.(data.actions);
+        },
         onNarrative(data) {
           turnRef.current = { ...turnRef.current, text: data.narrative, isLoading: false };
           onStreamingTurn?.({ ...turnRef.current });
           if (data.worldState?.progress != null) {
-            onProgressUpdate?.(data.worldState.progress as number);
+            onProgressUpdate?.(data.worldState.progress as number, data.worldState);
           }
         },
         onImage(imageUrl) {

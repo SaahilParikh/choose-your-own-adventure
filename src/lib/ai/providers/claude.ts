@@ -1,5 +1,6 @@
 import { ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { getBedrockClient } from "../bedrock";
+import { parseAIJson } from "../parse-json";
 import {
   NarrativeConfig,
   NarrativeProvider,
@@ -69,13 +70,7 @@ export class ClaudeNarrativeProvider implements NarrativeProvider {
   }
 
   private parseResult(raw: string, tokensUsed: number): NarrativeResult {
-    // Strip markdown code fences if present
-    const cleaned = raw
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
-
-    const response: NarrativeResponse = JSON.parse(cleaned);
+    const response: NarrativeResponse = parseAIJson(raw) as NarrativeResponse;
     return { response, tokensUsed };
   }
 }

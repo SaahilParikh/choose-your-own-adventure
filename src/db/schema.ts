@@ -1,6 +1,13 @@
 import { pgTable, text, boolean, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
 
 // ── Types ────────────────────────────────────────────────
+export type CharacterSheet = {
+  inventory: { name: string; description: string }[];
+  knowledge: { topic: string; level: string }[];
+  beliefs: string[];
+  traits: string[];
+};
+
 export type WorldState = {
   location: string;
   inventory: string[];
@@ -9,6 +16,9 @@ export type WorldState = {
   flags: Record<string, boolean>;
   progress: number; // 0-100, starts at 10
   agents?: import("@/lib/ai/types").WorldAgent[];
+  characterSheet?: CharacterSheet;
+  forces?: import("@/lib/ai/types").MetaForce[];
+  fateHistory?: number[];
 };
 
 // ── Better Auth Required Tables ──────────────────────────
@@ -83,6 +93,9 @@ export const gameTurns = pgTable("game_turns", {
   worldState: jsonb("world_state").notNull().$type<WorldState>(),
   tokensUsed: integer("tokens_used").notNull().default(0),
   diceResults: jsonb("dice_results").$type<import("@/lib/ai/types").ActionCheck[]>(),
+  forceActions: jsonb("force_actions").$type<import("@/lib/ai/types").ForceAction[]>(),
+  agentActions: jsonb("agent_actions").$type<import("@/lib/ai/types").WorldAgentAction[]>(),
+  fateRoll: jsonb("fate_roll").$type<import("@/lib/ai/types").FateRoll>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -7,7 +7,7 @@ import { TurnCard } from "./turn-card";
 import { ActionInput } from "./action-input";
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
-import type { ActionCheck } from "@/lib/ai/types";
+import type { ActionCheck, WorldAgentAction, ForceAction, FateRoll } from "@/lib/ai/types";
 
 type Game = typeof games.$inferSelect;
 type GameTurn = typeof gameTurns.$inferSelect;
@@ -28,6 +28,9 @@ export function GameView({
   voiceId,
   onStreamingTurn,
   onDiceRoll,
+  onAgentActions,
+  onForceActions,
+  onFate,
   onProgressUpdate,
 }: {
   game: Game;
@@ -37,7 +40,10 @@ export function GameView({
   voiceId?: string;
   onStreamingTurn?: (turn: StreamingTurn | null) => void;
   onDiceRoll?: (playerAction: string, actions: ActionCheck[]) => void;
-  onProgressUpdate?: (progress: number) => void;
+  onAgentActions?: (actions: WorldAgentAction[]) => void;
+  onForceActions?: (actions: ForceAction[]) => void;
+  onFate?: (fate: FateRoll) => void;
+  onProgressUpdate?: (progress: number, worldState?: Record<string, unknown>) => void;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -102,6 +108,9 @@ export function GameView({
           voiceId={voiceId}
           onStreamingTurn={onStreamingTurn}
           onDiceRoll={onDiceRoll}
+          onAgentActions={onAgentActions}
+          onForceActions={onForceActions}
+          onFate={onFate}
           onProgressUpdate={onProgressUpdate}
         />
       )}

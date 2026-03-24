@@ -43,7 +43,8 @@ export async function synthesizeSpeech(text: string, voiceId: string = "Matthew"
       offset += chunk.length;
     }
     return Buffer.from(combined).toString("base64");
-  } catch {
+  } catch (err) {
+    console.error("[Polly] Speech synthesis failed:", err);
     return null;
   }
 }

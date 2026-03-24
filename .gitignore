@@ -54,3 +54,4 @@ scripts/*.js
 # docker
 pgdata/
 mise.local.toml
+.event.swp

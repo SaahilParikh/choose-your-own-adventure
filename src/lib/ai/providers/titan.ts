@@ -36,7 +36,8 @@ export class TitanImageProvider implements ImageProvider {
       const base64: string | undefined = result.images?.[0];
 
       return { base64: base64 ?? null };
-    } catch {
+    } catch (err) {
+      console.error("[Titan] Image generation failed:", err);
       return { base64: null };
     }
   }

@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { games, gameTurns, WorldState } from "@/db/schema";
+import type { games, gameTurns, WorldState, CharacterSheet as CharacterSheetType } from "@/db/schema";
 import { GameSidebar } from "./game-sidebar";
 import { GameView, type StreamingTurn } from "./game-view";
 import { GameOver } from "./game-over";
 import { NewGameDialog } from "./new-game-dialog";
 import { DiceSidebar, type DiceRound } from "./dice-sidebar";
+import { CharacterSheet } from "./character-sheet";
 import { VoiceSelector } from "./voice-selector";
 import { Button } from "@/components/ui/button";
 import { PanelLeftClose, PanelLeft, Plus, Sparkles } from "lucide-react";
-import type { ActionCheck } from "@/lib/ai/types";
+import type { ActionCheck, WorldAgentAction, ForceAction, FateRoll } from "@/lib/ai/types";
 
 type Game = typeof games.$inferSelect;
 type GameTurn = typeof gameTurns.$inferSelect;
@@ -34,23 +35,69 @@ export function GameShell({
   const [currentProgress, setCurrentProgress] = useState(
     (activeGame?.worldState as WorldState | undefined)?.progress ?? 10
   );
+  const [characterSheet, setCharacterSheet] = useState<CharacterSheetType | undefined>(
+    (activeGame?.worldState as WorldState | undefined)?.characterSheet
+  );
   const router = useRouter();
 
+  // Sync state when activeGame prop changes (e.g., after router.refresh)
+  const gameId = activeGame?.id;
+  useEffect(() => {
+    const ws = activeGame?.worldState as WorldState | undefined;
+    setCurrentProgress(ws?.progress ?? 10);
+    setCharacterSheet(ws?.characterSheet);
+  }, [gameId, activeGame?.worldState]);
+
+  const pendingFateRef = useRef<FateRoll | null>(null);
+
   const addDiceRound = useCallback((playerAction: string, actions: ActionCheck[]) => {
+    const fate = pendingFateRef.current;
+    pendingFateRef.current = null;
     setDiceRounds((prev) => [
       ...prev,
       {
         turnNumber: prev.length + 1,
         playerAction,
         actions,
+        fate: fate ?? undefined,
       },
     ]);
+  }, []);
+
+  const addAgentActions = useCallback((agentActions: WorldAgentAction[]) => {
+    setDiceRounds((prev) => {
+      if (!prev.length) return prev;
+      const updated = [...prev];
+      updated[updated.length - 1] = { ...updated[updated.length - 1], agentActions };
+      return updated;
+    });
+  }, []);
+
+  const addForceActions = useCallback((forceActions: ForceAction[]) => {
+    setDiceRounds((prev) => {
+      if (!prev.length) return prev;
+      const updated = [...prev];
+      updated[updated.length - 1] = { ...updated[updated.length - 1], forceActions };
+      return updated;
+    });
+  }, []);
+
+  const addFate = useCallback((fate: FateRoll) => {
+    pendingFateRef.current = fate;
+  }, []);
+
+  const handleProgressUpdate = useCallback((progress: number, worldState?: Record<string, unknown>) => {
+    setCurrentProgress(progress);
+    if (worldState?.characterSheet) {
+      setCharacterSheet(worldState.characterSheet as CharacterSheetType);
+    }
   }, []);
 
   function handleGameCreated() {
     setDialogOpen(false);
     setDiceRounds([]);
     setCurrentProgress(10);
+    setCharacterSheet(undefined);
     router.refresh();
   }
 
@@ -66,7 +113,7 @@ export function GameShell({
         {sidebarOpen ? <PanelLeftClose /> : <PanelLeft />}
       </Button>
 
-      {/* Left sidebar - games list */}
+      {/* Left sidebar - games list + character sheet */}
       <aside
         className={`${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -105,7 +152,10 @@ export function GameShell({
               voiceId={voiceId}
               onStreamingTurn={setStreamingTurn}
               onDiceRoll={addDiceRound}
-              onProgressUpdate={setCurrentProgress}
+              onAgentActions={addAgentActions}
+              onForceActions={addForceActions}
+              onFate={addFate}
+              onProgressUpdate={handleProgressUpdate}
             />
           ) : (
             <div className="flex flex-1 flex-col">
@@ -117,7 +167,10 @@ export function GameShell({
                 voiceId={voiceId}
                 onStreamingTurn={setStreamingTurn}
                 onDiceRoll={addDiceRound}
-                onProgressUpdate={setCurrentProgress}
+                onAgentActions={addAgentActions}
+                onForceActions={addForceActions}
+                onFate={addFate}
+                onProgressUpdate={handleProgressUpdate}
               />
               <GameOver status={activeGame.status} onNewGame={() => setDialogOpen(true)} />
             </div>
@@ -146,7 +199,7 @@ export function GameShell({
 
       {/* Right sidebar - dice log */}
       {activeGame && (
-        <DiceSidebar rounds={diceRounds} progress={currentProgress}>
+        <DiceSidebar rounds={diceRounds} progress={currentProgress} extra={<CharacterSheet sheet={characterSheet} />}>
           <VoiceSelector value={voiceId} onChange={setVoiceId} />
         </DiceSidebar>
       )}

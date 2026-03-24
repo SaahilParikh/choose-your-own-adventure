@@ -18,6 +18,8 @@ export interface TurnCost {
   narrativeCost: number;
   difficultyCost: number;
   agentCost: number;
+  relationsCost: number;
+  forcesCost: number;
   imageCost: number;
   pollyCost: number;
   subtotal: number;
@@ -50,6 +52,10 @@ export function calculateTurnCost(parts: {
   difficultyOutputTokens: number;
   agentInputTokens?: number;
   agentOutputTokens?: number;
+  relationsInputTokens?: number;
+  relationsOutputTokens?: number;
+  forcesInputTokens?: number;
+  forcesOutputTokens?: number;
   imageGenerated: boolean;
   narrativeText: string;
 }): TurnCost {
@@ -68,13 +74,23 @@ export function calculateTurnCost(parts: {
     parts.agentInputTokens ?? 0,
     parts.agentOutputTokens ?? 0,
   );
+  const relationsCost = calculateNarrativeCost(
+    parts.narrativeModelId,
+    parts.relationsInputTokens ?? 0,
+    parts.relationsOutputTokens ?? 0,
+  );
+  const forcesCost = calculateNarrativeCost(
+    parts.narrativeModelId,
+    parts.forcesInputTokens ?? 0,
+    parts.forcesOutputTokens ?? 0,
+  );
   const imageCost = parts.imageGenerated ? calculateImageCost() : 0;
   const pollyCost = calculatePollyCost(parts.narrativeText);
-  const subtotal = narrativeCost + difficultyCost + agentCost + imageCost + pollyCost;
+  const subtotal = narrativeCost + difficultyCost + agentCost + relationsCost + forcesCost + imageCost + pollyCost;
   const total = subtotal * MARGIN_MULTIPLIER;
   const totalCents = Math.ceil(total * 100);
 
-  return { narrativeCost, difficultyCost, agentCost, imageCost, pollyCost, subtotal, total, totalCents };
+  return { narrativeCost, difficultyCost, agentCost, relationsCost, forcesCost, imageCost, pollyCost, subtotal, total, totalCents };
 }
 
 export function formatBalance(cents: number): string {

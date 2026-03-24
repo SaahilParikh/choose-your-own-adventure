@@ -70,6 +70,15 @@ export interface AntiCheatRule {
   toPromptText(): string;
 }
 
+// ── Character sheet ──────────────────────────────────────
+
+export interface CharacterSheet {
+  inventory: { name: string; description: string }[];
+  knowledge: { topic: string; level: string }[];
+  beliefs: string[];
+  traits: string[];
+}
+
 // ── World agents ─────────────────────────────────────────
 
 export interface WorldAgent {
@@ -89,11 +98,58 @@ export interface WorldAgentReaction {
   dispositionChange?: string;
 }
 
+export interface WorldAgentAction {
+  agentId: string;
+  agentName: string;
+  action: string | null;
+  difficulty: number;
+  roll: number;
+  success: boolean;
+  targetType: "player" | "world" | "none";
+  repercussion?: { description: string; severity: number; roll: number; mild: boolean };
+}
+
+export interface AgentVisibility {
+  agentId: string;
+  canPerceivePlayer: boolean;
+  visibleInfo: Partial<CharacterSheet> | null;
+  context: string;
+}
+
+// ── Meta-forces & Fate ───────────────────────────────────
+
+export interface MetaForce {
+  id: "antagonist" | "ally" | "neutral";
+  name: string;
+  role: string;
+  characterSheet: CharacterSheet;
+}
+
+export interface ForceAction {
+  forceId: string;
+  forceName: string;
+  action: string;
+  targetAgentId?: string;
+  cost: number;
+  difficulty: number;
+  roll: number;
+  success: boolean;
+  repercussion?: RepercussionCheck;
+}
+
+export interface FateRoll {
+  zScore: number;
+  modifier: number;
+  description: string;
+}
+
 // ── Difficulty / dice-roll system ────────────────────────
 
 export interface ActionCheck {
   action: string;
-  difficulty: number;
+  difficulty: number; // effective difficulty (after character sheet adjustments)
+  baseDifficulty?: number; // raw difficulty before adjustments
+  relevantCharacteristics?: string[]; // what skills/items affected the difficulty
   roll: number;
   success: boolean;
   repercussion?: RepercussionCheck;

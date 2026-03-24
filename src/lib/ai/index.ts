@@ -50,17 +50,29 @@ export async function generateSceneImage(
 
 // ── Re-exports ───────────────────────────────────────────
 
-export { evaluateDifficulty } from "./difficulty";
-export { spawnInitialAgents, getWorldReactions } from "./world-agents";
+export { evaluateDifficulty, evaluateDifficultyBatch } from "./difficulty";
+export { spawnInitialAgents, getWorldAgentActions, getRawAgentActions, assembleAgentActions } from "./world-agents";
+export { evaluateRelations } from "./relations";
+export { rollFate, applyFate } from "./fate";
+export { spawnForces, evaluateForces, getForceActions, assembleForceActions } from "./forces";
+
+export type { BatchDifficultyInput } from "./difficulty";
+export type { RawForceAction } from "./forces";
+export type { RawAgentAction } from "./world-agents";
 
 export type {
   ActionCheck,
+  AgentVisibility,
   AntiCheatRule,
+  CharacterSheet,
   DifficultyResult,
+  FateRoll,
+  ForceAction,
   GameContext,
   ImageConfig,
   ImageProvider,
   ImageResult,
+  MetaForce,
   NarrativeConfig,
   NarrativeProvider,
   NarrativeResponse,
@@ -69,5 +81,6 @@ export type {
   RepercussionCheck,
   TurnSummary,
   WorldAgent,
+  WorldAgentAction,
   WorldAgentReaction,
 } from "./types";
