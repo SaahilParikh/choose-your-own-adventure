@@ -45,8 +45,6 @@ describe("turnGraph", () => {
       agentsLLM: createMockLLM(agentsResponse),
       batchDifficultyLLM: createMockLLM(batchResponse),
       narrativeLLM: createMockLLM(narrativeResponse),
-      imageProvider: { generate: vi.fn().mockResolvedValue({ base64: "img123" }) },
-      synthesizeFn: vi.fn().mockResolvedValue("audio123"),
     });
 
     const result = await graph.invoke({
@@ -65,15 +63,15 @@ describe("turnGraph", () => {
     expect(result.fate).toBeDefined();
     expect(result.narrativeResponse).toBeDefined();
     expect(result.narrativeResponse!.narrative).toBe("The sword strikes true.");
-    expect(result.imageUrl).toBe("data:image/png;base64,img123");
-    expect(result.audioBase64).toBe("audio123");
+    // Image and audio are now generated outside the graph
+    expect(result.imageUrl).toBeUndefined();
+    expect(result.audioBase64).toBeUndefined();
   });
 
   it("handles node failures gracefully with errors accumulated", async () => {
     const { createTurnGraph } = await import("../turn-graph");
 
     const failingLLM = { invoke: vi.fn().mockRejectedValue(new Error("boom")) };
-    // Narrative must also fail so we can check errors accumulate
     const graph = createTurnGraph({
       difficultyLLM: failingLLM,
       forcesLLM: failingLLM,
@@ -81,8 +79,6 @@ describe("turnGraph", () => {
       agentsLLM: failingLLM,
       batchDifficultyLLM: failingLLM,
       narrativeLLM: failingLLM,
-      imageProvider: { generate: vi.fn().mockResolvedValue({ base64: null }) },
-      synthesizeFn: vi.fn().mockResolvedValue(null),
     });
 
     const result = await graph.invoke({

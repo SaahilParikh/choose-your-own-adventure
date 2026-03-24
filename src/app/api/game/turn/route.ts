@@ -7,7 +7,9 @@ import { calculateTurnCost } from "@/lib/pricing";
 import { createTurnGraph } from "@/lib/ai/graph/turn-graph";
 import { ChatBedrockConverse } from "@langchain/aws";
 import { TitanImageProvider } from "@/lib/ai/providers/titan";
-import { synthesizeSpeech } from "@/lib/ai/providers/polly";
+import { PollyAudioProvider } from "@/lib/ai/providers/polly";
+import { createImageNode } from "@/lib/ai/graph/nodes/image";
+import { createAudioNode } from "@/lib/ai/graph/nodes/audio";
 import type { TurnSummary } from "@/lib/ai/types";
 
 export async function POST(request: Request) {
@@ -48,9 +50,10 @@ export async function POST(request: Request) {
     agentsLLM: llm,
     batchDifficultyLLM: fastLLM,
     narrativeLLM: llm,
-    imageProvider: new TitanImageProvider(),
-    synthesizeFn: (text: string) => synthesizeSpeech(text, voiceId),
   });
+
+  const imageProvider = new TitanImageProvider();
+  const audioProvider = new PollyAudioProvider(voiceId);
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -60,6 +63,7 @@ export async function POST(request: Request) {
       };
 
       try {
+        // Phase 1: Run AI pipeline graph (fate → narrative)
         const result = await graph.invoke({
           setting: game.setting,
           objective: game.objective,
@@ -69,7 +73,7 @@ export async function POST(request: Request) {
           voiceId,
         });
 
-        // Send SSE events from completed graph result
+        // Send SSE events immediately — player sees text now
         if (result.fate) send("fate", result.fate);
         if (result.playerDiceResults) send("dice", { actions: result.playerDiceResults });
         if (result.forceActions?.length) send("forces", { actions: result.forceActions });
@@ -79,9 +83,34 @@ export async function POST(request: Request) {
           status: result.narrativeResponse.status,
           worldState: result.narrativeResponse.worldState,
         });
-        if (result.imageUrl) send("image", { imageUrl: result.imageUrl });
-        if (result.audioBase64) send("audio", { audioUrl: `data:audio/mp3;base64,${result.audioBase64}` });
         for (const err of result.errors ?? []) send("debug", err);
+
+        // Phase 2: Run image + audio in parallel, send as they complete
+        let imageUrl: string | null = null;
+
+        const imagePromise = (async () => {
+          if (!result.narrativeResponse) return;
+          const { enhanceImagePrompt } = await import("@/lib/ai/prompts/image");
+          try {
+            const imgResult = await imageProvider.generate(enhanceImagePrompt(result.narrativeResponse.imagePrompt));
+            if (imgResult.base64) {
+              imageUrl = `data:image/png;base64,${imgResult.base64}`;
+              send("image", { imageUrl });
+            }
+          } catch { /* image failure is non-fatal */ }
+        })();
+
+        const audioPromise = (async () => {
+          if (!result.narrativeResponse) return;
+          try {
+            const audioResult = await audioProvider.synthesize(result.narrativeResponse.narrative);
+            if (audioResult.base64) {
+              send("audio", { audioUrl: `data:audio/mp3;base64,${audioResult.base64}` });
+            }
+          } catch { /* audio failure is non-fatal */ }
+        })();
+
+        await Promise.all([imagePromise, audioPromise]);
 
         // Cost + DB writes
         const updatedWorldState = result.narrativeResponse?.worldState ?? worldState;
@@ -93,7 +122,7 @@ export async function POST(request: Request) {
           narrativeOutputTokens: result.totalTokens.output,
           difficultyInputTokens: 0,
           difficultyOutputTokens: 0,
-          imageGenerated: !!result.imageUrl,
+          imageGenerated: !!imageUrl,
           narrativeText: result.narrativeResponse?.narrative ?? "",
         });
 
@@ -104,7 +133,7 @@ export async function POST(request: Request) {
           turnNumber: newTurnNumber,
           playerAction,
           narrativeText: result.narrativeResponse?.narrative ?? "",
-          imageUrl: result.imageUrl ?? null,
+          imageUrl: imageUrl ?? null,
           worldState: updatedWorldState,
           diceResults: result.playerDiceResults ?? null,
           forceActions: result.forceActions?.length ? result.forceActions : null,

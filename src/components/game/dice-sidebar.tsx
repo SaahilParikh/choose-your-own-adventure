@@ -37,7 +37,7 @@ export type DiceRound = {
 export function DiceSidebar({ rounds, progress, children, extra }: { rounds: DiceRound[]; progress: number; children?: ReactNode; extra?: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [expanded, setExpanded] = useState<Set<number>>(new Set([0]));
-  const [showBehindScenes, setShowBehindScenes] = useState(true);
+  const [showBehindScenes, setShowBehindScenes] = useState(false);
 
   const reversed = [...rounds].reverse();
 
@@ -113,7 +113,7 @@ export function DiceSidebar({ rounds, progress, children, extra }: { rounds: Dic
         </div>
 
         <ScrollArea className="h-[calc(100%-5rem)]">
-          {extra}
+          {showBehindScenes && extra}
           <div className="space-y-1 p-3">
             {rounds.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-8">

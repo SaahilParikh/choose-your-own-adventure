@@ -410,8 +410,8 @@ describe("imageNode", () => {
 describe("audioNode", () => {
   it("returns base64 audio", async () => {
     const { createAudioNode } = await import("../../graph/nodes/audio");
-    const mockFn = vi.fn().mockResolvedValue("base64audio");
-    const node = createAudioNode(mockFn);
+    const mockProvider = { synthesize: vi.fn().mockResolvedValue({ base64: "base64audio" }) };
+    const node = createAudioNode(mockProvider);
     const state = createEmptyState({
       narrativeResponse: { narrative: "The story unfolds.", worldState: { location: "x", inventory: [], npcs: [], questProgress: {}, flags: {}, progress: 10 }, imagePrompt: "a scene", status: "active" },
     });
@@ -421,8 +421,8 @@ describe("audioNode", () => {
 
   it("returns null on failure", async () => {
     const { createAudioNode } = await import("../../graph/nodes/audio");
-    const mockFn = vi.fn().mockResolvedValue(null);
-    const node = createAudioNode(mockFn);
+    const mockProvider = { synthesize: vi.fn().mockResolvedValue({ base64: null }) };
+    const node = createAudioNode(mockProvider);
     const state = createEmptyState({
       narrativeResponse: { narrative: "text", worldState: { location: "x", inventory: [], npcs: [], questProgress: {}, flags: {}, progress: 10 }, imagePrompt: "a scene", status: "active" },
     });
@@ -432,12 +432,12 @@ describe("audioNode", () => {
 
   it("skips if no narrative response", async () => {
     const { createAudioNode } = await import("../../graph/nodes/audio");
-    const mockFn = vi.fn();
-    const node = createAudioNode(mockFn);
+    const mockProvider = { synthesize: vi.fn() };
+    const node = createAudioNode(mockProvider);
     const state = createEmptyState();
     const result = await node(state);
     expect(result.audioBase64).toBeUndefined();
-    expect(mockFn).not.toHaveBeenCalled();
+    expect(mockProvider.synthesize).not.toHaveBeenCalled();
   });
 });
 

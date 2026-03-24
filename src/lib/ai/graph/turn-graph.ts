@@ -9,10 +9,7 @@ import {
   createBatchDifficultyNode,
   applyForcesNode,
   createNarrativeNode,
-  createImageNode,
-  createAudioNode,
 } from "./nodes";
-import type { ImageProvider } from "@/lib/ai/types";
 
 export function createTurnGraph(config: {
   difficultyLLM: { invoke: Function };
@@ -21,8 +18,6 @@ export function createTurnGraph(config: {
   agentsLLM: { invoke: Function };
   batchDifficultyLLM: { invoke: Function };
   narrativeLLM: { invoke: Function };
-  imageProvider: ImageProvider;
-  synthesizeFn: (text: string) => Promise<string | null>;
 }) {
   const graph = new StateGraph(TurnState)
     .addNode("rollFate", fateNode)
@@ -33,8 +28,6 @@ export function createTurnGraph(config: {
     .addNode("batchDifficulty", createBatchDifficultyNode(config.batchDifficultyLLM))
     .addNode("applyForces", applyForcesNode)
     .addNode("genNarrative", createNarrativeNode(config.narrativeLLM))
-    .addNode("genImage", createImageNode(config.imageProvider))
-    .addNode("genAudio", createAudioNode(config.synthesizeFn))
     .addEdge("__start__", "rollFate")
     .addEdge("rollFate", "evalDifficulty")
     .addEdge("rollFate", "evalForces")
@@ -46,10 +39,7 @@ export function createTurnGraph(config: {
     .addEdge("evalForces", "batchDifficulty")
     .addEdge("batchDifficulty", "applyForces")
     .addEdge("applyForces", "genNarrative")
-    .addEdge("genNarrative", "genImage")
-    .addEdge("genNarrative", "genAudio")
-    .addEdge("genImage", "__end__")
-    .addEdge("genAudio", "__end__");
+    .addEdge("genNarrative", "__end__");
 
   return graph.compile();
 }

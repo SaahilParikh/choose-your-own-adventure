@@ -22,11 +22,13 @@ export function createBatchDifficultyNode(llm: { invoke: Function }) {
         return `${i + 1}. [${a.actorId}] "${a.actorName}" (${caps}) — Action: "${a.action}"`;
       }).join("\n");
 
-      const systemPrompt = `You are a difficulty evaluator. Evaluate difficulty for multiple actors.
+      const systemPrompt = `You are a difficulty evaluator. For each actor's action, break it into discrete sub-actions (just like you would for a player) and rate each one independently.
 Setting: ${state.setting}
 Objective: ${state.objective}
 Location: ${state.worldState.location}
 Progress: ${state.worldState.progress}%
+
+If an actor's action describes multiple steps or a complex maneuver, split it into separate sub-actions. Even a single sentence may contain 2-3 discrete actions.
 
 Respond with ONLY valid JSON:
 { "actors": [{ "actorId": "...", "actions": [{ "action": "...", "baseDifficulty": 50, "effectiveDifficulty": 45, "relevantCharacteristics": [], "repercussionIfFail": { "description": "...", "severity": 30 } }] }] }`;

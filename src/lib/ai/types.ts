@@ -39,6 +39,18 @@ export interface ImageConfig {
   height?: number;
 }
 
+export interface AudioProvider {
+  synthesize(text: string, config?: AudioConfig): Promise<AudioResult>;
+}
+
+export interface AudioConfig {
+  voiceId?: string;
+}
+
+export interface AudioResult {
+  base64: string | null;
+}
+
 // ── Prompt composition ───────────────────────────────────
 
 export interface PromptBuilder {
