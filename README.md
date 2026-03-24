@@ -2,31 +2,32 @@
 
 An AI-powered text adventure game where you shape the story through your choices. Each turn, the AI generates narrative, scene artwork, and voice narration — all in real-time.
 
-The game includes a difficulty system with dice rolls, a progress tracker, anti-cheat mechanics, and Stripe-based payments for account balance.
+The game features a dice-roll difficulty system, world agents with independent agendas, meta-forces (antagonist/ally/neutral) competing over the objective, a fate system, character sheets, and dollar-based billing.
 
 ## How it works
 
-1. Create an account and add funds
+1. Create an account and add funds via Stripe
 2. Start a new game by picking a setting and objective (or hit "Random Journey")
 3. Type or speak your actions each turn
 4. The AI breaks your input into discrete actions, rolls dice against difficulty ratings, and writes the story based on the outcomes
-5. Scene images and voice narration generate in the background while you read
-6. Progress toward your objective rises and falls based on your choices — reach 100% to win, hit 0% and you lose
+5. World agents and meta-forces act independently each turn — the world moves with or without you
+6. Scene images and voice narration generate in the background while you read
+7. Progress toward your objective rises and falls based on the plot — reach 100% to win, or lose when the objective becomes unachievable
 
 ## Stack
 
-- **Next.js 15** (App Router) + TypeScript + Tailwind CSS v4
-- **Drizzle ORM** + PostgreSQL
-- **Better Auth** for authentication
+- **Next.js 16** (App Router) + TypeScript + Tailwind CSS v4
+- **LangGraph** + **LangChain** — AI pipeline orchestration
 - **Amazon Bedrock** — Claude for narrative, Nova Canvas for images
 - **Amazon Polly** — generative voice narration
+- **Drizzle ORM** + PostgreSQL
+- **Better Auth** for authentication
 - **Stripe** — payments via Checkout
-- **SSE streaming** — real-time narrative delivery
+- **SSE streaming** — real-time delivery
 
 ## Setup
 
 ```bash
-# Clone and install
 git clone https://github.com/SaahilParikh/choose-your-own-adventure.git
 cd choose-your-own-adventure
 npm install
@@ -65,46 +66,46 @@ Open `http://localhost:3001`.
 
 ```
 src/
-├── app/                    # Next.js routes
-│   ├── api/game/           # SSE streaming endpoints (start, turn)
-│   ├── api/stripe/         # Checkout, webhook, verify
-│   ├── api/auth/           # Better Auth catch-all
-│   ├── game/               # Game page + layout
-│   ├── sign-in/            # Auth pages
-│   └── sign-up/
-├── components/game/        # Game UI components
-├── db/                     # Drizzle schema + client
+├── app/                        # Next.js routes
+│   ├── api/game/               # SSE streaming endpoints (start, turn, random)
+│   ├── api/stripe/             # Checkout, webhook, verify
+│   └── game/                   # Game page + layout
+├── components/game/            # Game UI components
+├── db/                         # Drizzle schema + client
 └── lib/
-    ├── ai/                 # AI layer (providers, prompts, difficulty)
-    │   ├── providers/      # Claude, Titan/Nova Canvas, Polly
-    │   └── prompts/        # Narrative, difficulty, anti-cheat, image
-    ├── actions/            # Server actions
-    ├── queries/            # DB query helpers
-    ├── pricing.ts          # Cost calculation from API usage
-    ├── tokens.ts           # Balance management
-    └── stripe.ts           # Stripe client + packages
+    ├── ai/
+    │   ├── graph/              # LangGraph pipeline
+    │   │   ├── state.ts        # Typed graph state
+    │   │   ├── turn-graph.ts   # Graph wiring
+    │   │   └── nodes/          # 10 pipeline nodes
+    │   ├── prompts/            # Prompt builders (narrative, difficulty, forces, etc.)
+    │   ├── providers/          # Image (Titan/Nova Canvas), Audio (Polly)
+    │   ├── fate.ts             # Luck system (normal distribution)
+    │   └── types.ts            # All AI types
+    ├── pricing.ts              # Provider-agnostic cost calculation
+    ├── tokens.ts               # Balance management
+    └── stripe.ts               # Stripe client + packages
 ```
 
-## AI architecture
+## AI pipeline
 
-The AI layer uses provider interfaces so models can be swapped without touching game logic:
+Each turn runs a LangGraph StateGraph:
 
-- `NarrativeProvider` — text generation (currently Claude via Bedrock Converse API)
-- `ImageProvider` — scene visualization (currently Nova Canvas)
-- `PromptBuilder` — composable prompt construction with injectable anti-cheat rules
+```
+fate → parallel(difficulty, forces, relations) → agents → batch difficulty → apply forces → narrative
+```
 
-Each turn runs two AI calls: a difficulty evaluation (low temperature, consistent ratings) and a narrative generation (higher temperature, creative writing). Image and audio generate in parallel after the narrative completes.
+Then image + audio generate in parallel. Each node is independently testable with mocked LLMs. Different nodes can use different models/providers.
 
 ## Billing
 
-Users pay real dollars. Each turn's cost is calculated from actual API usage:
+Users pay real dollars. Each turn's cost is calculated from actual API usage via a configurable `PricingConfig`. Default: Bedrock token pricing + image flat rate + Polly per-character, with 1.5x margin.
 
-- Claude input/output tokens × per-token price
-- Image generation flat rate
-- Polly TTS per character
-- 1.5x margin
+## Testing
 
-Pricing config lives in `src/lib/pricing.ts`.
+```bash
+npm test        # 56 tests via vitest
+```
 
 ## License
 
