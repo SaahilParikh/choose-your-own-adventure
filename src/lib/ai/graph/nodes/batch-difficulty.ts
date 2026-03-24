@@ -2,6 +2,7 @@ import { parseAIJson } from "@/lib/ai/parse-json";
 import { rollDiceForActions, type BatchDifficultyInput } from "@/lib/ai/difficulty";
 import { assembleForceActions } from "@/lib/ai/forces";
 import { assembleAgentActions } from "@/lib/ai/world-agents";
+import { DifficultyPromptBuilder } from "@/lib/ai/prompts/difficulty";
 import type { TurnStateType } from "../state";
 import type { ActionCheck } from "@/lib/ai/types";
 
@@ -22,20 +23,15 @@ export function createBatchDifficultyNode(llm: { invoke: Function }) {
         return `${i + 1}. [${a.actorId}] "${a.actorName}" (${caps}) — Action: "${a.action}"`;
       }).join("\n");
 
-      const systemPrompt = `You are a difficulty evaluator. For each actor's action, break it into discrete sub-actions (just like you would for a player) and rate each one independently.
-Setting: ${state.setting}
-Objective: ${state.objective}
-Location: ${state.worldState.location}
-Progress: ${state.worldState.progress}%
-
-If an actor's action describes multiple steps or a complex maneuver, split it into separate sub-actions. Even a single sentence may contain 2-3 discrete actions.
-
-Respond with ONLY valid JSON:
-{ "actors": [{ "actorId": "...", "actions": [{ "action": "...", "baseDifficulty": 50, "effectiveDifficulty": 45, "relevantCharacteristics": [], "repercussionIfFail": { "description": "...", "severity": 30 } }] }] }`;
+      const promptBuilder = new DifficultyPromptBuilder();
+      const systemPrompt = promptBuilder.buildBatchSystemPrompt(
+        state.setting, state.objective, state.worldState.location, state.worldState.progress ?? 10,
+      );
+      const userMessage = promptBuilder.buildBatchUserMessage(actorLines);
 
       const response = await llm.invoke([
         { role: "system", content: systemPrompt },
-        { role: "human", content: `Actors and their actions:\n${actorLines}` },
+        { role: "human", content: userMessage },
       ]);
 
       const text = typeof response.content === "string" ? response.content : JSON.stringify(response.content);
