@@ -2,8 +2,9 @@ import { InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
 import { getBedrockClient } from "../bedrock";
 import { ImageConfig, ImageProvider, ImageResult } from "../types";
 
-const DEFAULT_WIDTH = 1024;
-const DEFAULT_HEIGHT = 1024;
+// TODO: Revert to 1024x1024 once images are stored in S3 instead of DB
+const DEFAULT_WIDTH = 512;
+const DEFAULT_HEIGHT = 512;
 
 export class TitanImageProvider implements ImageProvider {
   private modelId: string;
