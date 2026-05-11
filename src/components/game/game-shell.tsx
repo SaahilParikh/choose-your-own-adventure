@@ -40,12 +40,17 @@ export function GameShell({
   );
   const router = useRouter();
 
-  // Sync state when activeGame prop changes (e.g., after router.refresh)
+  // Sync state when activeGame prop changes (e.g., after router.refresh or game switch).
+  // The local state is also updated by SSE callbacks (handleProgressUpdate), so we cannot
+  // simply derive from props — we need to reset on prop change while preserving in-flight
+  // SSE updates. ESLint flags this as a cascading-render pattern, but it is intentional.
   const gameId = activeGame?.id;
   useEffect(() => {
     const ws = activeGame?.worldState as WorldState | undefined;
+    /* eslint-disable react-hooks/set-state-in-effect */
     setCurrentProgress(ws?.progress ?? 10);
     setCharacterSheet(ws?.characterSheet);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [gameId, activeGame?.worldState]);
 
   const pendingFateRef = useRef<FateRoll | null>(null);

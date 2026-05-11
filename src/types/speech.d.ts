@@ -1,3 +1,5 @@
+// Ambient type declarations for the Web Speech API (not yet part of lib.dom.d.ts).
+
 interface SpeechRecognition extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
@@ -35,7 +37,9 @@ interface SpeechRecognitionErrorEvent extends Event {
   message: string;
 }
 
-declare var SpeechRecognition: {
+// `declare var` is the idiomatic ambient declaration for a global constructor,
+// but conflicts with `no-var`. `const` is allowed and has equivalent semantics here.
+declare const SpeechRecognition: {
   new (): SpeechRecognition;
   prototype: SpeechRecognition;
 };

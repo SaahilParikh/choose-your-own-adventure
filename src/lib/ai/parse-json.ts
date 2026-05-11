@@ -4,7 +4,7 @@
  */
 export function parseAIJson<T>(raw: string): T {
   // Strip markdown code fences
-  let text = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  const text = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 
   // Try direct parse first
   try {
@@ -26,22 +26,17 @@ export function parseAIJson<T>(raw: string): T {
       candidate = candidate.replace(/,\s*([}\]])/g, "$1");
 
       // Try to close unclosed strings, arrays, objects
-      let opens = 0;
       let inString = false;
       let escaped = false;
       for (const ch of candidate) {
         if (escaped) { escaped = false; continue; }
         if (ch === "\\") { escaped = true; continue; }
         if (ch === '"') { inString = !inString; continue; }
-        if (inString) continue;
-        if (ch === "{" || ch === "[") opens++;
-        if (ch === "}" || ch === "]") opens--;
       }
 
       // Close unclosed string
       if (inString) candidate += '"';
 
-      // Close unclosed brackets
       // Count actual opens vs closes
       const braces: string[] = [];
       inString = false;
