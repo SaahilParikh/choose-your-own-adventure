@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
-import { eq, and } from "drizzle-orm";
 import { getUserFromRequest } from "@/lib/auth-helpers";
 import { stripe } from "@/lib/stripe";
-import { addFunds } from "@/lib/tokens";
-import { db } from "@/db";
-import { tokenTransactions } from "@/db/schema";
+import { addFunds, DuplicateStripeSessionError } from "@/lib/tokens";
 import { formatBalance } from "@/lib/pricing";
 
 export async function POST(request: Request) {
@@ -12,7 +9,9 @@ export async function POST(request: Request) {
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   const { sessionId } = await request.json();
-  if (!sessionId) return new Response("Missing session ID", { status: 400 });
+  if (!sessionId || typeof sessionId !== "string") {
+    return new Response("Missing session ID", { status: 400 });
+  }
 
   // Retrieve the checkout session from Stripe to verify payment.
   const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId);
@@ -21,26 +20,38 @@ export async function POST(request: Request) {
     return new Response("Payment not completed", { status: 400 });
   }
 
-  // Check we haven't already processed this session (idempotency).
-  const [existing] = await db
-    .select()
-    .from(tokenTransactions)
-    .where(and(eq(tokenTransactions.reason, `stripe:${sessionId}`)));
-
-  if (existing) {
-    return NextResponse.json({ alreadyProcessed: true });
-  }
-
   const userId = checkoutSession.metadata?.userId;
-  const amountCents = parseInt(checkoutSession.metadata?.amountCents ?? "0", 10);
+  const amountCentsFromMetadata = parseInt(checkoutSession.metadata?.amountCents ?? "0", 10);
+  const amountTotal = checkoutSession.amount_total ?? 0;
 
   if (userId !== user.id) {
+    console.warn(`[api/stripe/verify] user mismatch: session=${sessionId} expected=${user.id} got=${userId}`);
     return new Response("User mismatch", { status: 403 });
   }
 
-  if (amountCents > 0) {
-    await addFunds(userId, amountCents, `stripe:${sessionId}`);
+  // Cross-check metadata against Stripe's ground truth amount (defense in depth).
+  if (amountCentsFromMetadata !== amountTotal) {
+    console.error(
+      `[api/stripe/verify] amount mismatch: metadata=${amountCentsFromMetadata} total=${amountTotal} session=${sessionId}`,
+    );
+    return new Response("Amount mismatch", { status: 400 });
   }
 
-  return NextResponse.json({ granted: amountCents, grantedFormatted: formatBalance(amountCents) });
+  if (amountTotal <= 0) {
+    return NextResponse.json({ granted: 0, grantedFormatted: formatBalance(0) });
+  }
+
+  try {
+    await addFunds(userId, amountTotal, `stripe:${sessionId}`, sessionId);
+  } catch (err) {
+    if (err instanceof DuplicateStripeSessionError) {
+      return NextResponse.json({ alreadyProcessed: true });
+    }
+    throw err;
+  }
+
+  return NextResponse.json({
+    granted: amountTotal,
+    grantedFormatted: formatBalance(amountTotal),
+  });
 }

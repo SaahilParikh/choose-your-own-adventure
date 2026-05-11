@@ -100,11 +100,15 @@ export const gameTurns = pgTable("game_turns", {
 });
 
 // ── Token Tracking ───────────────────────────────────────
+// `stripeSessionId` is UNIQUE so that concurrent webhook + verify calls cannot
+// both credit the same Stripe session — the second INSERT fails the unique
+// constraint and is caught as "already processed" in the caller.
 export const tokenTransactions = pgTable("token_transactions", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   amount: integer("amount").notNull(),
   reason: text("reason").notNull(),
+  stripeSessionId: text("stripe_session_id").unique(),
   gameId: text("game_id").references(() => games.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

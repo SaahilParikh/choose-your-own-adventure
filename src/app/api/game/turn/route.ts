@@ -4,8 +4,8 @@ import { db } from "@/db";
 import { games, gameTurns, type WorldState } from "@/db/schema";
 import { env } from "@/lib/env";
 import { getUserFromRequest } from "@/lib/auth-helpers";
-import { getBalance, deductCost } from "@/lib/tokens";
-import { calculateTurnCost, type TurnCost } from "@/lib/pricing";
+import { getBalance, deductCost, InsufficientBalanceError } from "@/lib/tokens";
+import { calculateTurnCost, MIN_TURN_BALANCE_CENTS, type TurnCost } from "@/lib/pricing";
 import { createTurnGraph } from "@/lib/ai/graph/turn-graph";
 import type { TurnStateType } from "@/lib/ai/graph/state";
 import { TitanImageProvider } from "@/lib/ai/providers/titan";
@@ -21,7 +21,6 @@ import type {
 // ── Constants ────────────────────────────────────────────
 
 const MAX_ACTION_LENGTH = 2000;
-const MIN_BALANCE_CENTS = 1;
 const TURN_HISTORY_LIMIT = 5;
 const FAST_LLM_TEMPERATURE = 0.3;
 const SSE_HEADERS = {
@@ -29,6 +28,15 @@ const SSE_HEADERS = {
   "Cache-Control": "no-cache",
   Connection: "keep-alive",
 } as const;
+
+// KNOWN LIMITATION: This route does not serialize concurrent turns on the same
+// game. If a user submits two turns back-to-back while the first is still
+// running, both will execute the full AI pipeline against the same pre-state
+// world, and the second write to `games.worldState` overwrites the first.
+// Financial correctness is preserved (each turn is billed atomically via
+// deductCost), but game state can diverge.
+// TODO: Use optimistic concurrency control — check games.updatedAt hasn't
+// changed between read and write, reject the turn if it has, and refund.
 
 // ── Request types ────────────────────────────────────────
 
@@ -147,9 +155,13 @@ interface PersistTurnInput {
 }
 
 /**
- * Deduct the turn cost and persist the turn + updated game state from the
- * caller's perspective. Returns the calculated cost so it can be streamed
- * to the client.
+ * Deduct the turn cost and persist the turn + updated game state. Returns the
+ * calculated cost so it can be streamed to the client.
+ *
+ * `deductCost` is atomic and throws `InsufficientBalanceError` if the user's
+ * balance dropped below the cost between the initial pre-check and now (e.g.,
+ * the user started another turn concurrently). In that rare case, this function
+ * throws without persisting the turn record — the caller surfaces an error.
  */
 async function persistTurn(input: PersistTurnInput): Promise<TurnCost> {
   const {
@@ -215,7 +227,9 @@ export async function POST(request: Request) {
   if (!game || game.status !== "active") return new Response("Invalid game", { status: 400 });
 
   const balance = await getBalance(user.id);
-  if (balance < MIN_BALANCE_CENTS) return new Response("Insufficient balance", { status: 402 });
+  if (balance < MIN_TURN_BALANCE_CENTS) {
+    return new Response("Insufficient balance", { status: 402 });
+  }
 
   // 4. Build inputs for the graph
   const worldState = game.worldState as WorldState;
@@ -279,18 +293,36 @@ export async function POST(request: Request) {
         }
 
         // Phase 3: cost + persistence
-        const turnCost = await persistTurn({
-          userId: user.id,
-          gameId,
-          previousTurnCount: game.turnCount,
-          playerAction,
-          previousWorldState: worldState,
-          graphResult: result,
-          imageUrl,
-          modelId,
-        });
-
-        send("cost", turnCost);
+        try {
+          const turnCost = await persistTurn({
+            userId: user.id,
+            gameId,
+            previousTurnCount: game.turnCount,
+            playerAction,
+            previousWorldState: worldState,
+            graphResult: result,
+            imageUrl,
+            modelId,
+          });
+          send("cost", turnCost);
+        } catch (err) {
+          if (err instanceof InsufficientBalanceError) {
+            console.error("[api/game/turn] balance drained mid-turn:", {
+              userId: user.id,
+              gameId,
+              cost: calculateTurnCost({
+                modelId,
+                inputTokens: result.totalTokens.input,
+                outputTokens: result.totalTokens.output,
+                imageGenerated: !!imageUrl,
+                narrativeTextLength: (result.narrativeResponse?.narrative ?? "").length,
+              }).totalCents,
+            });
+            send("error", { message: "Insufficient balance to complete turn" });
+            return;
+          }
+          throw err;
+        }
         send("done", {});
       } catch (error) {
         console.error("[api/game/turn] request failed:", error);

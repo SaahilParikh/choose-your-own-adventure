@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
 import { env } from "@/lib/env";
 import { stripe } from "@/lib/stripe";
-import { addFunds } from "@/lib/tokens";
-import { db } from "@/db";
-import { tokenTransactions } from "@/db/schema";
+import { addFunds, DuplicateStripeSessionError } from "@/lib/tokens";
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -23,20 +20,31 @@ export async function POST(request: Request) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
     const userId = session.metadata?.userId;
-    const amountCents = parseInt(session.metadata?.amountCents ?? "0", 10);
-    const reason = `stripe:${session.id}`;
+    const amountCentsFromMetadata = parseInt(session.metadata?.amountCents ?? "0", 10);
+    const amountTotal = session.amount_total ?? 0;
 
-    // Idempotency check — skip if already processed.
-    const [existing] = await db
-      .select()
-      .from(tokenTransactions)
-      .where(eq(tokenTransactions.reason, reason));
-    if (existing) {
-      return NextResponse.json({ alreadyProcessed: true });
+    // Defense in depth: the amount we credit must match what Stripe actually
+    // charged. Metadata is server-controlled at checkout creation, but this
+    // guards against any future bug that lets client-controlled data through.
+    if (amountCentsFromMetadata !== amountTotal) {
+      console.error(
+        `[api/stripe/webhook] amount mismatch: metadata=${amountCentsFromMetadata} total=${amountTotal} session=${session.id}`,
+      );
+      return new Response("Amount mismatch", { status: 400 });
     }
 
-    if (userId && amountCents > 0) {
-      await addFunds(userId, amountCents, reason);
+    if (!userId || amountTotal <= 0) {
+      return NextResponse.json({ received: true, ignored: true });
+    }
+
+    const reason = `stripe:${session.id}`;
+    try {
+      await addFunds(userId, amountTotal, reason, session.id);
+    } catch (err) {
+      if (err instanceof DuplicateStripeSessionError) {
+        return NextResponse.json({ alreadyProcessed: true });
+      }
+      throw err;
     }
   }
 

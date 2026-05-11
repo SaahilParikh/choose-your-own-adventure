@@ -44,6 +44,16 @@ export const DEFAULT_PRICING: PricingConfig = {
   margin: 1.5,
 };
 
+/**
+ * Minimum balance (in cents) required before starting a new turn.
+ *
+ * A full turn runs 6 LLM calls + image + audio and typically costs 30-40¢ after
+ * margin. 50¢ gives headroom for unusually long turns and ensures that even if
+ * a turn costs more than expected, the user's balance can absorb it without
+ * going negative. See also the atomic guard in `tokens.ts::deductCost`.
+ */
+export const MIN_TURN_BALANCE_CENTS = 50;
+
 // ── Cost calculation ────────────────────────────────────
 
 export interface TurnCostInput {

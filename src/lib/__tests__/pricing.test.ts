@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateTurnCost, formatBalance, DEFAULT_PRICING } from "../pricing";
+import { calculateTurnCost, formatBalance, DEFAULT_PRICING, MIN_TURN_BALANCE_CENTS } from "../pricing";
 import type { TurnCostInput } from "../pricing";
 
 const baseInput: TurnCostInput = {
@@ -82,5 +82,23 @@ describe("formatBalance", () => {
     expect(formatBalance(100)).toBe("$1.00");
     expect(formatBalance(1550)).toBe("$15.50");
     expect(formatBalance(1)).toBe("$0.01");
+  });
+});
+
+describe("MIN_TURN_BALANCE_CENTS", () => {
+  it("is a positive integer", () => {
+    expect(Number.isInteger(MIN_TURN_BALANCE_CENTS)).toBe(true);
+    expect(MIN_TURN_BALANCE_CENTS).toBeGreaterThan(0);
+  });
+
+  it("covers a pessimistic turn cost (25k/5k tokens + image + 1500-char audio) with headroom", () => {
+    const pessimistic = calculateTurnCost({
+      modelId: "us.anthropic.claude-sonnet-4-20250514-v1:0",
+      inputTokens: 25_000,
+      outputTokens: 5_000,
+      imageGenerated: true,
+      narrativeTextLength: 1500,
+    });
+    expect(MIN_TURN_BALANCE_CENTS).toBeGreaterThanOrEqual(pessimistic.totalCents);
   });
 });

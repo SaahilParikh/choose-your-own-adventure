@@ -5,7 +5,7 @@ import { games, gameTurns, type WorldState } from "@/db/schema";
 import { env } from "@/lib/env";
 import { getUserFromRequest } from "@/lib/auth-helpers";
 import { parseAIJson } from "@/lib/ai/parse-json";
-import { getBalance, deductCost } from "@/lib/tokens";
+import { getBalance, deductCost, InsufficientBalanceError } from "@/lib/tokens";
 import { generateSceneImage } from "@/lib/ai";
 import { spawnInitialAgents } from "@/lib/ai/world-agents";
 import { spawnForces } from "@/lib/ai/forces";
@@ -13,11 +13,10 @@ import type { GameContext, NarrativeResponse } from "@/lib/ai/types";
 import { getBedrockClient } from "@/lib/ai/bedrock";
 import { NarrativePromptBuilder } from "@/lib/ai/prompts/narrative";
 import { synthesizeSpeech } from "@/lib/ai/providers/polly";
-import { calculateTurnCost } from "@/lib/pricing";
+import { calculateTurnCost, MIN_TURN_BALANCE_CENTS } from "@/lib/pricing";
 
 const MAX_SETTING_LENGTH = 2000;
 const MAX_OBJECTIVE_LENGTH = 1000;
-const MIN_BALANCE_CENTS = 1;
 const INITIAL_PROGRESS = 10;
 const NARRATIVE_MAX_TOKENS = 4096;
 const NARRATIVE_TEMPERATURE = 0.8;
@@ -44,7 +43,9 @@ export async function POST(request: Request) {
   }
 
   const balance = await getBalance(user.id);
-  if (balance < MIN_BALANCE_CENTS) return new Response("Insufficient balance", { status: 402 });
+  if (balance < MIN_TURN_BALANCE_CENTS) {
+    return new Response("Insufficient balance", { status: 402 });
+  }
 
   const initialWorldState: WorldState = {
     location: "starting_area",
@@ -211,7 +212,21 @@ export async function POST(request: Request) {
           narrativeTextLength: narrativeResponse.narrative.length,
         });
 
-        await deductCost(user.id, turnCost.totalCents, "game_start", game.id);
+        try {
+          await deductCost(user.id, turnCost.totalCents, "game_start", game.id);
+        } catch (err) {
+          if (err instanceof InsufficientBalanceError) {
+            // Rare: balance was above MIN_TURN_BALANCE_CENTS at start but dropped
+            // below the actual cost (e.g., a concurrent turn drained it). The game
+            // is created but we can't deduct. Log and inform the client.
+            console.error("[api/game/start] balance drained mid-start:", {
+              userId: user.id, gameId: game.id, cost: turnCost.totalCents,
+            });
+            send("error", { message: "Insufficient balance to complete game start" });
+            return;
+          }
+          throw err;
+        }
 
         // Update turn record with actual cost
         const [turn] = await db
