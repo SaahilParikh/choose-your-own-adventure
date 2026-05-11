@@ -107,6 +107,90 @@ Users pay real dollars. Each turn's cost is calculated from actual API usage via
 npm test        # 56 tests via vitest
 ```
 
+## AWS credentials on Vercel
+
+In production on Vercel, this app uses **OIDC federation** to assume an IAM role
+instead of long-lived `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`. Benefits:
+temporary credentials (minutes-long), nothing to rotate, nothing to leak.
+
+The credential resolution is in [`src/lib/ai/aws-credentials.ts`](src/lib/ai/aws-credentials.ts):
+if `AWS_ROLE_ARN` is set, we use `@vercel/oidc-aws-credentials-provider` to
+exchange the Vercel-issued OIDC token for STS credentials. Otherwise, we fall
+through to the AWS SDK default chain (env-var keys for local dev).
+
+### One-time setup
+
+Replace `TEAM_SLUG`, `PROJECT_NAME`, and `AWS_ACCOUNT_ID` below with your own.
+
+**1. Enable OIDC in Vercel:** Project → Settings → Security → Secure backend
+access with OIDC federation → toggle on. Leave issuer mode on **Team**.
+
+**2. Create the OIDC identity provider in AWS IAM** (IAM → Identity providers):
+- Type: **OpenID Connect**
+- Provider URL: `https://oidc.vercel.com/TEAM_SLUG`
+- Audience: `https://vercel.com/TEAM_SLUG`
+
+**3. Create an IAM role** with this trust policy:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": {
+      "Federated": "arn:aws:iam::AWS_ACCOUNT_ID:oidc-provider/oidc.vercel.com/TEAM_SLUG"
+    },
+    "Action": "sts:AssumeRoleWithWebIdentity",
+    "Condition": {
+      "StringEquals": {
+        "oidc.vercel.com/TEAM_SLUG:aud": "https://vercel.com/TEAM_SLUG"
+      },
+      "StringLike": {
+        "oidc.vercel.com/TEAM_SLUG:sub": "owner:TEAM_SLUG:project:PROJECT_NAME:environment:production"
+      }
+    }
+  }]
+}
+```
+
+**4. Attach a least-privilege permissions policy** to the role:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "BedrockInvoke",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:*::foundation-model/anthropic.claude-*",
+        "arn:aws:bedrock:*:AWS_ACCOUNT_ID:inference-profile/*anthropic.claude-*",
+        "arn:aws:bedrock:*::foundation-model/amazon.nova-canvas-*",
+        "arn:aws:bedrock:*::foundation-model/amazon.titan-image-*"
+      ]
+    },
+    {
+      "Sid": "PollySynthesize",
+      "Effect": "Allow",
+      "Action": "polly:SynthesizeSpeech",
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+**5. In Vercel project env vars:** add `AWS_ROLE_ARN` = the role ARN from step 3,
+and remove `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`. Redeploy.
+
+### Local development
+
+Leave `AWS_ROLE_ARN` unset and keep `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`
+in `.env.local` — the SDK uses those when no role ARN is configured.
+
 ## License
 
 MIT

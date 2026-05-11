@@ -8,6 +8,7 @@ import { getBalance, deductCost, InsufficientBalanceError } from "@/lib/tokens";
 import { calculateTurnCost, MIN_TURN_BALANCE_CENTS, type TurnCost } from "@/lib/pricing";
 import { createTurnGraph } from "@/lib/ai/graph/turn-graph";
 import type { TurnStateType } from "@/lib/ai/graph/state";
+import { awsClientConfig } from "@/lib/ai/aws-credentials";
 import { TitanImageProvider } from "@/lib/ai/providers/titan";
 import { PollyAudioProvider } from "@/lib/ai/providers/polly";
 import { enhanceImagePrompt } from "@/lib/ai/prompts/image";
@@ -76,10 +77,14 @@ function buildTurnGraphAndProviders(voiceId: string | undefined): {
   modelId: string;
 } {
   const modelId = env.BEDROCK_NARRATIVE_MODEL_ID;
-  const region = env.AWS_REGION;
+  const awsConfig = awsClientConfig();
 
-  const llm = new ChatBedrockConverse({ model: modelId, region });
-  const fastLLM = new ChatBedrockConverse({ model: modelId, region, temperature: FAST_LLM_TEMPERATURE });
+  const llm = new ChatBedrockConverse({ model: modelId, ...awsConfig });
+  const fastLLM = new ChatBedrockConverse({
+    model: modelId,
+    ...awsConfig,
+    temperature: FAST_LLM_TEMPERATURE,
+  });
 
   const graph = createTurnGraph({
     difficultyLLM: fastLLM,

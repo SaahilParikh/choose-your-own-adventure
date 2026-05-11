@@ -7,6 +7,14 @@
  *   - A single place to add new env vars.
  *
  * Never use `process.env.X!` in app code — use `env.X` from here instead.
+ *
+ * AWS credentials are handled as an either/or:
+ *   - Production (Vercel): set `AWS_ROLE_ARN`, Vercel injects `VERCEL_OIDC_TOKEN`.
+ *   - Local dev / non-Vercel: set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+ *
+ * The AWS SDK's default credential chain picks up keys from the environment
+ * automatically when present, so those two keys are treated as optional here —
+ * `src/lib/ai/aws-credentials.ts` owns the resolution logic.
  */
 
 type RequiredKey =
@@ -14,20 +22,21 @@ type RequiredKey =
   | "BETTER_AUTH_SECRET"
   | "BETTER_AUTH_URL"
   | "AWS_REGION"
-  | "AWS_ACCESS_KEY_ID"
-  | "AWS_SECRET_ACCESS_KEY"
   | "BEDROCK_NARRATIVE_MODEL_ID"
   | "BEDROCK_IMAGE_MODEL_ID"
   | "STRIPE_SECRET_KEY"
   | "STRIPE_WEBHOOK_SECRET";
+
+type OptionalKey =
+  | "AWS_ACCESS_KEY_ID"
+  | "AWS_SECRET_ACCESS_KEY"
+  | "AWS_ROLE_ARN";
 
 const REQUIRED_KEYS: readonly RequiredKey[] = [
   "DATABASE_URL",
   "BETTER_AUTH_SECRET",
   "BETTER_AUTH_URL",
   "AWS_REGION",
-  "AWS_ACCESS_KEY_ID",
-  "AWS_SECRET_ACCESS_KEY",
   "BEDROCK_NARRATIVE_MODEL_ID",
   "BEDROCK_IMAGE_MODEL_ID",
   "STRIPE_SECRET_KEY",
@@ -42,6 +51,12 @@ function readRequired(key: RequiredKey): string {
         `See .env.example for the full list of required variables.`,
     );
   }
+  return value;
+}
+
+function readOptional(key: OptionalKey): string | undefined {
+  const value = process.env[key];
+  if (!value || value.trim() === "") return undefined;
   return value;
 }
 
@@ -86,12 +101,14 @@ export const env = {
   get BETTER_AUTH_SECRET() { return getEnv().BETTER_AUTH_SECRET; },
   get BETTER_AUTH_URL() { return getEnv().BETTER_AUTH_URL; },
   get AWS_REGION() { return getEnv().AWS_REGION; },
-  get AWS_ACCESS_KEY_ID() { return getEnv().AWS_ACCESS_KEY_ID; },
-  get AWS_SECRET_ACCESS_KEY() { return getEnv().AWS_SECRET_ACCESS_KEY; },
   get BEDROCK_NARRATIVE_MODEL_ID() { return getEnv().BEDROCK_NARRATIVE_MODEL_ID; },
   get BEDROCK_IMAGE_MODEL_ID() { return getEnv().BEDROCK_IMAGE_MODEL_ID; },
   get STRIPE_SECRET_KEY() { return getEnv().STRIPE_SECRET_KEY; },
   get STRIPE_WEBHOOK_SECRET() { return getEnv().STRIPE_WEBHOOK_SECRET; },
+  // Optional — presence depends on deployment mode.
+  get AWS_ACCESS_KEY_ID() { return readOptional("AWS_ACCESS_KEY_ID"); },
+  get AWS_SECRET_ACCESS_KEY() { return readOptional("AWS_SECRET_ACCESS_KEY"); },
+  get AWS_ROLE_ARN() { return readOptional("AWS_ROLE_ARN"); },
 } as const;
 
 // Exported for explicit preflight validation (e.g., a startup script).
@@ -101,7 +118,7 @@ export function assertEnv(): void {
 
 // Re-export the required key list for documentation purposes.
 export { REQUIRED_KEYS };
-export type { RequiredKey };
+export type { RequiredKey, OptionalKey };
 
 // Exported for use in tests and readRequired-style isolated calls.
 export { readRequired };

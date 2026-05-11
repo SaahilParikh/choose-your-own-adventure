@@ -41,12 +41,12 @@ jobs:
         run: npm run build
         env:
           # Next.js build needs these to be set; real values are not used at build time.
+          # AWS credentials (keys or AWS_ROLE_ARN) are intentionally omitted — they are
+          # only required at runtime, resolved via `src/lib/ai/aws-credentials.ts`.
           DATABASE_URL: postgresql://adventure:adventure@localhost:5432/adventure
           BETTER_AUTH_SECRET: build-time-placeholder-secret-at-least-32-chars
           BETTER_AUTH_URL: http://localhost:3001
           AWS_REGION: us-east-1
-          AWS_ACCESS_KEY_ID: build-placeholder
-          AWS_SECRET_ACCESS_KEY: build-placeholder
           BEDROCK_NARRATIVE_MODEL_ID: us.anthropic.claude-sonnet-4-20250514-v1:0
           BEDROCK_IMAGE_MODEL_ID: amazon.nova-canvas-v1:0
           STRIPE_SECRET_KEY: sk_test_build_placeholder

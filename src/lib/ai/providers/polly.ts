@@ -1,11 +1,12 @@
 import { PollyClient, SynthesizeSpeechCommand, type VoiceId } from "@aws-sdk/client-polly";
 import type { AudioProvider, AudioConfig, AudioResult } from "@/lib/ai/types";
+import { awsClientConfig } from "@/lib/ai/aws-credentials";
 
 let client: PollyClient | null = null;
 
 function getPollyClient(): PollyClient {
   if (!client) {
-    client = new PollyClient({ region: process.env.AWS_REGION ?? "us-east-1" });
+    client = new PollyClient(awsClientConfig());
   }
   return client;
 }
