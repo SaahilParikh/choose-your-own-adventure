@@ -1,5 +1,7 @@
 # Choose Your Own Adventure
 
+Live at [choose-your-own-adventure.com](https://choose-your-own-adventure.com)
+
 An AI-powered text adventure game where you shape the story through your choices. Each turn, the AI generates narrative, scene artwork, and voice narration — all in real-time.
 
 The game features a dice-roll difficulty system, world agents with independent agendas, meta-forces (antagonist/ally/neutral) competing over the objective, a fate system, character sheets, and dollar-based billing.
