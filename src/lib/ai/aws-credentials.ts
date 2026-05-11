@@ -15,6 +15,11 @@
  * This module is the single source of truth for AWS client config. Add new
  * AWS SDK clients by importing `awsClientConfig()` — do not read AWS_REGION
  * or credential env vars directly elsewhere.
+ *
+ * Image generation often lives in a different region from narrative/text
+ * models (e.g., active text-to-image models on Bedrock are only in us-west-2
+ * as of 2026). Use `awsImageClientConfig()` for image clients; it reads
+ * `AWS_IMAGE_REGION` and falls back to `AWS_REGION` if unset.
  */
 
 import { awsCredentialsProvider } from "@vercel/oidc-aws-credentials-provider";
@@ -26,22 +31,29 @@ export interface AwsClientConfig {
   credentials?: AwsCredentialIdentityProvider;
 }
 
-/**
- * Returns `{ region, credentials? }` suitable for any AWS SDK v3 client.
- *
- * When `AWS_ROLE_ARN` is set, returns an OIDC-backed credential provider that
- * performs STS AssumeRoleWithWebIdentity under the hood. Otherwise, omits the
- * `credentials` key and lets the SDK use its default provider chain.
- */
-export function awsClientConfig(): AwsClientConfig {
-  const region = env.AWS_REGION;
-
+function buildConfig(region: string): AwsClientConfig {
   if (env.AWS_ROLE_ARN) {
     return {
       region,
       credentials: awsCredentialsProvider({ roleArn: env.AWS_ROLE_ARN }),
     };
   }
-
   return { region };
+}
+
+/**
+ * Returns `{ region, credentials? }` for the primary AWS region
+ * (text/narrative/audio). Suitable for any AWS SDK v3 client.
+ */
+export function awsClientConfig(): AwsClientConfig {
+  return buildConfig(env.AWS_REGION);
+}
+
+/**
+ * Returns `{ region, credentials? }` for image generation. Prefers
+ * `AWS_IMAGE_REGION` if set (so image models can live in a different region
+ * from the narrative model); falls back to `AWS_REGION`.
+ */
+export function awsImageClientConfig(): AwsClientConfig {
+  return buildConfig(env.AWS_IMAGE_REGION ?? env.AWS_REGION);
 }

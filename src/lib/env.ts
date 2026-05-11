@@ -30,7 +30,8 @@ type RequiredKey =
 type OptionalKey =
   | "AWS_ACCESS_KEY_ID"
   | "AWS_SECRET_ACCESS_KEY"
-  | "AWS_ROLE_ARN";
+  | "AWS_ROLE_ARN"
+  | "AWS_IMAGE_REGION";
 
 const REQUIRED_KEYS: readonly RequiredKey[] = [
   "DATABASE_URL",
@@ -109,6 +110,9 @@ export const env = {
   get AWS_ACCESS_KEY_ID() { return readOptional("AWS_ACCESS_KEY_ID"); },
   get AWS_SECRET_ACCESS_KEY() { return readOptional("AWS_SECRET_ACCESS_KEY"); },
   get AWS_ROLE_ARN() { return readOptional("AWS_ROLE_ARN"); },
+  // Optional — override the region used only for image model invocations.
+  // Useful when image models live in a different region from narrative models.
+  get AWS_IMAGE_REGION() { return readOptional("AWS_IMAGE_REGION"); },
 } as const;
 
 // Exported for explicit preflight validation (e.g., a startup script).

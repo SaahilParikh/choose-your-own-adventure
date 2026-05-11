@@ -9,8 +9,7 @@ import { calculateTurnCost, MIN_TURN_BALANCE_CENTS, type TurnCost } from "@/lib/
 import { createTurnGraph } from "@/lib/ai/graph/turn-graph";
 import type { TurnStateType } from "@/lib/ai/graph/state";
 import { awsClientConfig } from "@/lib/ai/aws-credentials";
-import { TitanImageProvider } from "@/lib/ai/providers/titan";
-import { PollyAudioProvider } from "@/lib/ai/providers/polly";
+import { createImageProvider, PollyAudioProvider } from "@/lib/ai/providers";
 import { enhanceImagePrompt } from "@/lib/ai/prompts/image";
 import type {
   AudioProvider,
@@ -97,7 +96,7 @@ function buildTurnGraphAndProviders(voiceId: string | undefined): {
 
   return {
     graph,
-    imageProvider: new TitanImageProvider(),
+    imageProvider: createImageProvider(),
     audioProvider: new PollyAudioProvider(voiceId),
     modelId,
   };
