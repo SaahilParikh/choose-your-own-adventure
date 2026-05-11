@@ -1,0 +1,71 @@
+name: Bug report
+description: Report something that is broken or behaves unexpectedly.
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Please provide as much
+        detail as possible — a good bug report gets fixed faster.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what actually occurred?
+      placeholder: |
+        I clicked "Start Game" and ...
+        I expected to see the opening scene.
+        Instead, I saw a 500 error.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Minimal steps to reproduce the issue.
+      placeholder: |
+        1. Sign in
+        2. Click "Random Journey"
+        3. ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Git SHA or tag. `git rev-parse HEAD`.
+      placeholder: "e.g. 61be2c3 or v0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Local dev (npm run dev)
+        - Self-hosted deployment
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / screenshots
+      description: Paste any error messages, console output, or screenshots.
+      render: shell
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: This is not a security issue (those go to SECURITY.md).
+          required: true
