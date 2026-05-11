@@ -41,17 +41,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ granted: 0, grantedFormatted: formatBalance(0) });
   }
 
+  // Attempt to credit the user. The unique constraint on stripe_session_id means
+  // the webhook may have already credited this session — in that common, benign
+  // case we still return the granted amount so the client can show a unified
+  // "funds added" confirmation rather than a scary "already processed" warning.
+  let alreadyProcessed = false;
   try {
     await addFunds(userId, amountTotal, `stripe:${sessionId}`, sessionId);
   } catch (err) {
     if (err instanceof DuplicateStripeSessionError) {
-      return NextResponse.json({ alreadyProcessed: true });
+      alreadyProcessed = true;
+    } else {
+      throw err;
     }
-    throw err;
   }
 
   return NextResponse.json({
     granted: amountTotal,
     grantedFormatted: formatBalance(amountTotal),
+    alreadyProcessed,
   });
 }

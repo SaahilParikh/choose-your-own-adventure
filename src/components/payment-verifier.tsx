@@ -19,10 +19,12 @@ export function PaymentVerifier() {
     })
       .then((res) => res.json())
       .then((data) => {
-        if (data.grantedFormatted) {
+        // The webhook may have credited first — in that case `alreadyProcessed`
+        // is true, but `grantedFormatted` still reflects the amount added. Show
+        // one unified success message regardless of which path completed the
+        // credit.
+        if (data.grantedFormatted && data.granted > 0) {
           toast.success(`${data.grantedFormatted} added to your balance!`);
-        } else if (data.alreadyProcessed) {
-          toast.info("Payment already processed");
         }
         router.replace("/game");
         router.refresh();
