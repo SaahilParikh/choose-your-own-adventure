@@ -10,15 +10,18 @@ import {
   applyForcesNode,
   createNarrativeNode,
 } from "./nodes";
+import type { Invokable } from "./types";
 
-export function createTurnGraph(config: {
-  difficultyLLM: { invoke: Function };
-  forcesLLM: { invoke: Function };
-  relationsLLM: { invoke: Function };
-  agentsLLM: { invoke: Function };
-  batchDifficultyLLM: { invoke: Function };
-  narrativeLLM: { invoke: Function };
-}) {
+export interface TurnGraphLLMs {
+  difficultyLLM: Invokable;
+  forcesLLM: Invokable;
+  relationsLLM: Invokable;
+  agentsLLM: Invokable;
+  batchDifficultyLLM: Invokable;
+  narrativeLLM: Invokable;
+}
+
+export function createTurnGraph(config: TurnGraphLLMs) {
   const graph = new StateGraph(TurnState)
     .addNode("rollFate", fateNode)
     .addNode("evalDifficulty", createDifficultyNode(config.difficultyLLM))

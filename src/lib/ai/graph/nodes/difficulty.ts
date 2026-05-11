@@ -2,9 +2,12 @@ import { parseAIJson } from "@/lib/ai/parse-json";
 import { rollDiceForActions } from "@/lib/ai/difficulty";
 import { DifficultyPromptBuilder } from "@/lib/ai/prompts/difficulty";
 import type { TurnStateType } from "../state";
+import type { Invokable } from "../types";
 import type { GameContext } from "@/lib/ai/types";
 
-export function createDifficultyNode(llm: { invoke: Function }) {
+type RawPlayerActions = Parameters<typeof rollDiceForActions>[0];
+
+export function createDifficultyNode(llm: Invokable) {
   return async (state: TurnStateType): Promise<Partial<TurnStateType>> => {
     try {
       const context: GameContext = {
@@ -23,7 +26,7 @@ export function createDifficultyNode(llm: { invoke: Function }) {
       ]);
 
       const text = typeof response.content === "string" ? response.content : JSON.stringify(response.content);
-      const parsed = parseAIJson(text) as { actions: any[] };
+      const parsed = parseAIJson<{ actions: RawPlayerActions }>(text);
       const actions = rollDiceForActions(parsed.actions, state.fate);
 
       const tokens = response.usage_metadata ?? { input_tokens: 0, output_tokens: 0 };

@@ -1,9 +1,10 @@
 import { parseAIJson } from "@/lib/ai/parse-json";
 import { buildRelationsPrompt } from "@/lib/ai/prompts/relations";
 import type { TurnStateType } from "../state";
+import type { Invokable } from "../types";
 import type { AgentVisibility } from "@/lib/ai/types";
 
-export function createRelationsNode(llm: { invoke: Function }) {
+export function createRelationsNode(llm: Invokable) {
   return async (state: TurnStateType): Promise<Partial<TurnStateType>> => {
     const agents = state.worldState.agents?.filter((a) => a.active);
     if (!agents?.length) return {};
@@ -18,7 +19,7 @@ export function createRelationsNode(llm: { invoke: Function }) {
       ]);
 
       const text = typeof response.content === "string" ? response.content : JSON.stringify(response.content);
-      const parsed = parseAIJson(text) as { agentVisibility: AgentVisibility[] };
+      const parsed = parseAIJson<{ agentVisibility: AgentVisibility[] }>(text);
       const tokens = response.usage_metadata ?? { input_tokens: 0, output_tokens: 0 };
 
       return {

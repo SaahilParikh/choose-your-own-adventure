@@ -1,9 +1,10 @@
 import { parseAIJson } from "@/lib/ai/parse-json";
 import { NarrativePromptBuilder } from "@/lib/ai/prompts/narrative";
 import type { TurnStateType } from "../state";
+import type { Invokable } from "../types";
 import type { GameContext, NarrativeResponse } from "@/lib/ai/types";
 
-export function createNarrativeNode(llm: { invoke: Function }) {
+export function createNarrativeNode(llm: Invokable) {
   return async (state: TurnStateType): Promise<Partial<TurnStateType>> => {
     try {
       const context: GameContext = {

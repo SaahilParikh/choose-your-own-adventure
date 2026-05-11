@@ -1,9 +1,10 @@
 import { parseAIJson } from "@/lib/ai/parse-json";
 import { buildAgentActionsPrompt } from "@/lib/ai/prompts/world-agents";
 import type { TurnStateType } from "../state";
+import type { Invokable } from "../types";
 import type { RawAgentAction } from "@/lib/ai/world-agents";
 
-export function createAgentsNode(llm: { invoke: Function }) {
+export function createAgentsNode(llm: Invokable) {
   return async (state: TurnStateType): Promise<Partial<TurnStateType>> => {
     const agents = state.worldState.agents?.filter((a) => a.active);
     if (!agents?.length) return {};
@@ -20,9 +21,9 @@ export function createAgentsNode(llm: { invoke: Function }) {
       ]);
 
       const text = typeof response.content === "string" ? response.content : JSON.stringify(response.content);
-      const parsed = parseAIJson(text) as {
+      const parsed = parseAIJson<{
         reactions: { agentId: string; action: string | null; targetType: "player" | "world" | "none"; dispositionChange?: string | null }[];
-      };
+      }>(text);
 
       const rawActions: RawAgentAction[] = parsed.reactions.map((r) => {
         const agent = agents.find((a) => a.id === r.agentId);

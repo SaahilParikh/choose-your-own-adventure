@@ -4,9 +4,12 @@ import { assembleForceActions } from "@/lib/ai/forces";
 import { assembleAgentActions } from "@/lib/ai/world-agents";
 import { DifficultyPromptBuilder } from "@/lib/ai/prompts/difficulty";
 import type { TurnStateType } from "../state";
+import type { Invokable } from "../types";
 import type { ActionCheck } from "@/lib/ai/types";
 
-export function createBatchDifficultyNode(llm: { invoke: Function }) {
+type RawActions = Parameters<typeof rollDiceForActions>[0];
+
+export function createBatchDifficultyNode(llm: Invokable) {
   return async (state: TurnStateType): Promise<Partial<TurnStateType>> => {
     const rawForce = state.rawForceActions ?? [];
     const rawAgent = state.rawAgentActions ?? [];
@@ -35,9 +38,9 @@ export function createBatchDifficultyNode(llm: { invoke: Function }) {
       ]);
 
       const text = typeof response.content === "string" ? response.content : JSON.stringify(response.content);
-      const parsed = parseAIJson(text) as {
-        actors: { actorId: string; actions: Parameters<typeof rollDiceForActions>[0] }[];
-      };
+      const parsed = parseAIJson<{
+        actors: { actorId: string; actions: RawActions }[];
+      }>(text);
 
       const results = new Map<string, ActionCheck[]>();
       for (const actor of parsed.actors) {

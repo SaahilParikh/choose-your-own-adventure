@@ -1,10 +1,11 @@
 import { parseAIJson } from "@/lib/ai/parse-json";
 import { buildForcesPrompt } from "@/lib/ai/prompts/forces";
 import type { TurnStateType } from "../state";
+import type { Invokable } from "../types";
 import type { RawForceAction } from "@/lib/ai/forces";
 import type { WorldAgent } from "@/lib/ai/types";
 
-export function createForcesNode(llm: { invoke: Function }) {
+export function createForcesNode(llm: Invokable) {
   return async (state: TurnStateType): Promise<Partial<TurnStateType>> => {
     const forces = state.worldState.forces;
     const agents = state.worldState.agents;
@@ -22,9 +23,9 @@ export function createForcesNode(llm: { invoke: Function }) {
       ]);
 
       const text = typeof response.content === "string" ? response.content : JSON.stringify(response.content);
-      const parsed = parseAIJson(text) as {
+      const parsed = parseAIJson<{
         forceActions: { forceId: string; action: string | null; targetAgentId?: string | null; newAgent?: WorldAgent | null }[];
-      };
+      }>(text);
 
       const rawActions: RawForceAction[] = [];
       const newAgents: WorldAgent[] = [];

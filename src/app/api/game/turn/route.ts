@@ -1,47 +1,77 @@
-import { auth } from "@/lib/auth";
+import { eq, and, desc } from "drizzle-orm";
+import { ChatBedrockConverse } from "@langchain/aws";
 import { db } from "@/db";
 import { games, gameTurns, type WorldState } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { env } from "@/lib/env";
+import { getUserFromRequest } from "@/lib/auth-helpers";
 import { getBalance, deductCost } from "@/lib/tokens";
-import { calculateTurnCost } from "@/lib/pricing";
+import { calculateTurnCost, type TurnCost } from "@/lib/pricing";
 import { createTurnGraph } from "@/lib/ai/graph/turn-graph";
-import { ChatBedrockConverse } from "@langchain/aws";
+import type { TurnStateType } from "@/lib/ai/graph/state";
 import { TitanImageProvider } from "@/lib/ai/providers/titan";
 import { PollyAudioProvider } from "@/lib/ai/providers/polly";
-import { createImageNode } from "@/lib/ai/graph/nodes/image";
-import { createAudioNode } from "@/lib/ai/graph/nodes/audio";
-import type { TurnSummary } from "@/lib/ai/types";
+import { enhanceImagePrompt } from "@/lib/ai/prompts/image";
+import type {
+  AudioProvider,
+  ImageProvider,
+  NarrativeResponse,
+  TurnSummary,
+} from "@/lib/ai/types";
 
-export async function POST(request: Request) {
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session) return new Response("Unauthorized", { status: 401 });
+// ── Constants ────────────────────────────────────────────
 
-  const { gameId, playerAction, voiceId } = await request.json();
+const MAX_ACTION_LENGTH = 2000;
+const MIN_BALANCE_CENTS = 1;
+const TURN_HISTORY_LIMIT = 5;
+const FAST_LLM_TEMPERATURE = 0.3;
+const SSE_HEADERS = {
+  "Content-Type": "text/event-stream",
+  "Cache-Control": "no-cache",
+  Connection: "keep-alive",
+} as const;
 
-  if (typeof playerAction !== "string" || !playerAction.trim() || playerAction.length > 2000)
-    return new Response("Invalid action", { status: 400 });
-  if (typeof gameId !== "string" || !gameId.trim())
-    return new Response("Invalid game ID", { status: 400 });
+// ── Request types ────────────────────────────────────────
 
-  const [game] = await db.select().from(games).where(and(eq(games.id, gameId), eq(games.userId, session.user.id)));
-  if (!game || game.status !== "active") return new Response("Invalid game", { status: 400 });
+interface TurnRequest {
+  gameId: string;
+  playerAction: string;
+  voiceId?: string;
+}
 
-  const balance = await getBalance(session.user.id);
-  if (balance < 1) return new Response("Insufficient balance", { status: 402 });
+interface ValidatedRequest {
+  gameId: string;
+  playerAction: string;
+  voiceId: string | undefined;
+}
 
-  const worldState = game.worldState as WorldState;
-  const recentTurns = await db.select().from(gameTurns).where(eq(gameTurns.gameId, gameId)).orderBy(desc(gameTurns.turnNumber)).limit(5);
-  const turnHistory: TurnSummary[] = recentTurns.reverse().map((t) => ({
-    turnNumber: t.turnNumber,
-    playerAction: t.playerAction,
-    narrative: t.narrativeText,
-  }));
+function validateTurnRequest(raw: unknown): ValidatedRequest | { error: string } {
+  const body = raw as Partial<TurnRequest>;
+  const playerAction = body?.playerAction;
+  const gameId = body?.gameId;
 
-  const modelId = process.env.BEDROCK_NARRATIVE_MODEL_ID!;
-  const region = process.env.AWS_REGION ?? "us-east-1";
+  if (typeof playerAction !== "string" || !playerAction.trim() || playerAction.length > MAX_ACTION_LENGTH) {
+    return { error: "Invalid action" };
+  }
+  if (typeof gameId !== "string" || !gameId.trim()) {
+    return { error: "Invalid game ID" };
+  }
+
+  return { gameId, playerAction, voiceId: body?.voiceId };
+}
+
+// ── LLM + provider setup ─────────────────────────────────
+
+function buildTurnGraphAndProviders(voiceId: string | undefined): {
+  graph: ReturnType<typeof createTurnGraph>;
+  imageProvider: ImageProvider;
+  audioProvider: AudioProvider;
+  modelId: string;
+} {
+  const modelId = env.BEDROCK_NARRATIVE_MODEL_ID;
+  const region = env.AWS_REGION;
 
   const llm = new ChatBedrockConverse({ model: modelId, region });
-  const fastLLM = new ChatBedrockConverse({ model: modelId, region, temperature: 0.3 });
+  const fastLLM = new ChatBedrockConverse({ model: modelId, region, temperature: FAST_LLM_TEMPERATURE });
 
   const graph = createTurnGraph({
     difficultyLLM: fastLLM,
@@ -52,9 +82,159 @@ export async function POST(request: Request) {
     narrativeLLM: llm,
   });
 
-  const imageProvider = new TitanImageProvider();
-  const audioProvider = new PollyAudioProvider(voiceId);
+  return {
+    graph,
+    imageProvider: new TitanImageProvider(),
+    audioProvider: new PollyAudioProvider(voiceId),
+    modelId,
+  };
+}
 
+// ── Media generation (runs in parallel) ──────────────────
+
+/**
+ * Generate image + audio for a completed narrative in parallel, streaming each
+ * out as it finishes. Returns the image URL for later persistence (null on failure).
+ *
+ * Failures are logged but non-fatal — the player has already seen the narrative text.
+ */
+async function streamMediaGeneration(
+  narrative: NarrativeResponse,
+  imageProvider: ImageProvider,
+  audioProvider: AudioProvider,
+  send: (event: string, data: unknown) => void,
+): Promise<{ imageUrl: string | null }> {
+  let imageUrl: string | null = null;
+
+  const imagePromise = (async () => {
+    try {
+      const imgResult = await imageProvider.generate(enhanceImagePrompt(narrative.imagePrompt));
+      if (imgResult.base64) {
+        imageUrl = `data:image/png;base64,${imgResult.base64}`;
+        send("image", { imageUrl });
+      }
+    } catch (err) {
+      console.error("[api/game/turn] image generation failed:", err);
+    }
+  })();
+
+  const audioPromise = (async () => {
+    try {
+      const audioResult = await audioProvider.synthesize(narrative.narrative);
+      if (audioResult.base64) {
+        send("audio", { audioUrl: `data:audio/mp3;base64,${audioResult.base64}` });
+      }
+    } catch (err) {
+      console.error("[api/game/turn] audio synthesis failed:", err);
+    }
+  })();
+
+  await Promise.all([imagePromise, audioPromise]);
+  return { imageUrl };
+}
+
+// ── Persistence ──────────────────────────────────────────
+
+interface PersistTurnInput {
+  userId: string;
+  gameId: string;
+  previousTurnCount: number;
+  playerAction: string;
+  previousWorldState: WorldState;
+  graphResult: TurnStateType;
+  imageUrl: string | null;
+  modelId: string;
+}
+
+/**
+ * Deduct the turn cost and persist the turn + updated game state from the
+ * caller's perspective. Returns the calculated cost so it can be streamed
+ * to the client.
+ */
+async function persistTurn(input: PersistTurnInput): Promise<TurnCost> {
+  const {
+    userId, gameId, previousTurnCount, playerAction,
+    previousWorldState, graphResult, imageUrl, modelId,
+  } = input;
+
+  const updatedWorldState = (graphResult.narrativeResponse?.worldState ?? previousWorldState) as WorldState;
+  const newTurnNumber = previousTurnCount + 1;
+
+  const turnCost = calculateTurnCost({
+    modelId,
+    inputTokens: graphResult.totalTokens.input,
+    outputTokens: graphResult.totalTokens.output,
+    imageGenerated: !!imageUrl,
+    narrativeTextLength: (graphResult.narrativeResponse?.narrative ?? "").length,
+  });
+
+  await deductCost(userId, turnCost.totalCents, "game_turn", gameId);
+
+  await db.insert(gameTurns).values({
+    gameId,
+    turnNumber: newTurnNumber,
+    playerAction,
+    narrativeText: graphResult.narrativeResponse?.narrative ?? "",
+    imageUrl: imageUrl ?? null,
+    worldState: updatedWorldState,
+    diceResults: graphResult.playerDiceResults ?? null,
+    forceActions: graphResult.forceActions?.length ? graphResult.forceActions : null,
+    agentActions: graphResult.agentActions?.length ? graphResult.agentActions : null,
+    fateRoll: graphResult.fate ?? null,
+    tokensUsed: turnCost.totalCents,
+  });
+
+  await db.update(games).set({
+    worldState: updatedWorldState,
+    turnCount: newTurnNumber,
+    status: graphResult.narrativeResponse?.status ?? "active",
+    updatedAt: new Date(),
+  }).where(eq(games.id, gameId));
+
+  return turnCost;
+}
+
+// ── Route handler ────────────────────────────────────────
+
+export async function POST(request: Request) {
+  // 1. Auth
+  const user = await getUserFromRequest(request);
+  if (!user) return new Response("Unauthorized", { status: 401 });
+
+  // 2. Input validation
+  const raw = await request.json();
+  const parsed = validateTurnRequest(raw);
+  if ("error" in parsed) return new Response(parsed.error, { status: 400 });
+  const { gameId, playerAction, voiceId } = parsed;
+
+  // 3. Load game + guard rails
+  const [game] = await db
+    .select()
+    .from(games)
+    .where(and(eq(games.id, gameId), eq(games.userId, user.id)));
+  if (!game || game.status !== "active") return new Response("Invalid game", { status: 400 });
+
+  const balance = await getBalance(user.id);
+  if (balance < MIN_BALANCE_CENTS) return new Response("Insufficient balance", { status: 402 });
+
+  // 4. Build inputs for the graph
+  const worldState = game.worldState as WorldState;
+  const recentTurns = await db
+    .select()
+    .from(gameTurns)
+    .where(eq(gameTurns.gameId, gameId))
+    .orderBy(desc(gameTurns.turnNumber))
+    .limit(TURN_HISTORY_LIMIT);
+
+  const turnHistory: TurnSummary[] = recentTurns.reverse().map((t) => ({
+    turnNumber: t.turnNumber,
+    playerAction: t.playerAction,
+    narrative: t.narrativeText,
+  }));
+
+  const { graph, imageProvider, audioProvider, modelId } = buildTurnGraphAndProviders(voiceId);
+
+  // 5. Stream
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -63,93 +243,57 @@ export async function POST(request: Request) {
       };
 
       try {
-        // Phase 1: Run AI pipeline graph (fate → narrative)
-        const result = await graph.invoke({
+        // Phase 1: AI pipeline (fate → narrative)
+        const result = (await graph.invoke({
           setting: game.setting,
           objective: game.objective,
           playerAction,
           worldState,
           turnHistory,
           voiceId,
-        });
+        })) as TurnStateType;
 
-        // Send SSE events immediately — player sees text now
+        // Send SSE events immediately — player sees text now.
         if (result.fate) send("fate", result.fate);
         if (result.playerDiceResults) send("dice", { actions: result.playerDiceResults });
         if (result.forceActions?.length) send("forces", { actions: result.forceActions });
         if (result.agentActions?.length) send("agents", { actions: result.agentActions });
-        if (result.narrativeResponse) send("narrative", {
-          narrative: result.narrativeResponse.narrative,
-          status: result.narrativeResponse.status,
-          worldState: result.narrativeResponse.worldState,
-        });
+        if (result.narrativeResponse) {
+          send("narrative", {
+            narrative: result.narrativeResponse.narrative,
+            status: result.narrativeResponse.status,
+            worldState: result.narrativeResponse.worldState,
+          });
+        }
         for (const err of result.errors ?? []) send("debug", err);
 
-        // Phase 2: Run image + audio in parallel, send as they complete
+        // Phase 2: image + audio in parallel
         let imageUrl: string | null = null;
+        if (result.narrativeResponse) {
+          ({ imageUrl } = await streamMediaGeneration(
+            result.narrativeResponse,
+            imageProvider,
+            audioProvider,
+            send,
+          ));
+        }
 
-        const imagePromise = (async () => {
-          if (!result.narrativeResponse) return;
-          const { enhanceImagePrompt } = await import("@/lib/ai/prompts/image");
-          try {
-            const imgResult = await imageProvider.generate(enhanceImagePrompt(result.narrativeResponse.imagePrompt));
-            if (imgResult.base64) {
-              imageUrl = `data:image/png;base64,${imgResult.base64}`;
-              send("image", { imageUrl });
-            }
-          } catch { /* image failure is non-fatal */ }
-        })();
-
-        const audioPromise = (async () => {
-          if (!result.narrativeResponse) return;
-          try {
-            const audioResult = await audioProvider.synthesize(result.narrativeResponse.narrative);
-            if (audioResult.base64) {
-              send("audio", { audioUrl: `data:audio/mp3;base64,${audioResult.base64}` });
-            }
-          } catch { /* audio failure is non-fatal */ }
-        })();
-
-        await Promise.all([imagePromise, audioPromise]);
-
-        // Cost + DB writes
-        const updatedWorldState = result.narrativeResponse?.worldState ?? worldState;
-        const newTurnNumber = game.turnCount + 1;
-
-        const turnCost = calculateTurnCost({
-          modelId,
-          inputTokens: result.totalTokens.input,
-          outputTokens: result.totalTokens.output,
-          imageGenerated: !!imageUrl,
-          narrativeTextLength: (result.narrativeResponse?.narrative ?? "").length,
-        });
-
-        await deductCost(session.user.id, turnCost.totalCents, "game_turn", gameId);
-
-        await db.insert(gameTurns).values({
+        // Phase 3: cost + persistence
+        const turnCost = await persistTurn({
+          userId: user.id,
           gameId,
-          turnNumber: newTurnNumber,
+          previousTurnCount: game.turnCount,
           playerAction,
-          narrativeText: result.narrativeResponse?.narrative ?? "",
-          imageUrl: imageUrl ?? null,
-          worldState: updatedWorldState,
-          diceResults: result.playerDiceResults ?? null,
-          forceActions: result.forceActions?.length ? result.forceActions : null,
-          agentActions: result.agentActions?.length ? result.agentActions : null,
-          fateRoll: result.fate ?? null,
-          tokensUsed: turnCost.totalCents,
+          previousWorldState: worldState,
+          graphResult: result,
+          imageUrl,
+          modelId,
         });
-
-        await db.update(games).set({
-          worldState: updatedWorldState,
-          turnCount: newTurnNumber,
-          status: result.narrativeResponse?.status ?? "active",
-          updatedAt: new Date(),
-        }).where(eq(games.id, gameId));
 
         send("cost", turnCost);
         send("done", {});
       } catch (error) {
+        console.error("[api/game/turn] request failed:", error);
         send("error", { message: error instanceof Error ? error.message : "Unknown error" });
       } finally {
         controller.close();
@@ -157,7 +301,5 @@ export async function POST(request: Request) {
     },
   });
 
-  return new Response(stream, {
-    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" },
-  });
+  return new Response(stream, { headers: SSE_HEADERS });
 }

@@ -8,7 +8,9 @@ export function createImageNode(imageProvider: ImageProvider) {
     try {
       const result = await imageProvider.generate(enhanceImagePrompt(state.narrativeResponse.imagePrompt));
       return { imageUrl: result.base64 ? `data:image/png;base64,${result.base64}` : null };
-    } catch {
+    } catch (err) {
+      // Image generation is non-fatal — the player still sees text. Log for observability.
+      console.error("[graph/image] image generation failed:", err);
       return { imageUrl: null };
     }
   };

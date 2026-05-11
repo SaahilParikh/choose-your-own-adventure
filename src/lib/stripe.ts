@@ -1,9 +1,10 @@
 import Stripe from "stripe";
+import { env } from "@/lib/env";
 
 const globalForStripe = globalThis as unknown as { stripe?: Stripe };
 
 if (!globalForStripe.stripe) {
-  globalForStripe.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  globalForStripe.stripe = new Stripe(env.STRIPE_SECRET_KEY, {
     apiVersion: "2026-02-25.clover",
   });
 }

@@ -1,9 +1,10 @@
+import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
+import { env } from "@/lib/env";
 import { stripe } from "@/lib/stripe";
 import { addFunds } from "@/lib/tokens";
 import { db } from "@/db";
 import { tokenTransactions } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -13,12 +14,9 @@ export async function POST(request: Request) {
 
   let event;
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET!,
-    );
-  } catch {
+    event = stripe.webhooks.constructEvent(body, signature, env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error("[api/stripe/webhook] signature verification failed:", err);
     return new Response("Invalid signature", { status: 400 });
   }
 
@@ -28,8 +26,11 @@ export async function POST(request: Request) {
     const amountCents = parseInt(session.metadata?.amountCents ?? "0", 10);
     const reason = `stripe:${session.id}`;
 
-    // Idempotency check — skip if already processed
-    const [existing] = await db.select().from(tokenTransactions).where(eq(tokenTransactions.reason, reason));
+    // Idempotency check — skip if already processed.
+    const [existing] = await db
+      .select()
+      .from(tokenTransactions)
+      .where(eq(tokenTransactions.reason, reason));
     if (existing) {
       return NextResponse.json({ alreadyProcessed: true });
     }

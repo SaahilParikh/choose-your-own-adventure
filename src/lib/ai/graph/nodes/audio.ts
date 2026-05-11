@@ -7,7 +7,9 @@ export function createAudioNode(audioProvider: AudioProvider) {
     try {
       const result = await audioProvider.synthesize(state.narrativeResponse.narrative, { voiceId: state.voiceId });
       return { audioBase64: result.base64 };
-    } catch {
+    } catch (err) {
+      // Audio is non-fatal — the player still sees text. Log for observability.
+      console.error("[graph/audio] audio synthesis failed:", err);
       return { audioBase64: null };
     }
   };
